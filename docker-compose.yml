@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: cortexa-qdrant-db
+    ports:
+      - "6333:6333" # Standard gRPC port
+      - "6334:6334" # Standard REST port
+    volumes:
+      - ./data/04_qdrant_storage:/qdrant/storage # Persists your vectors to disk
+
+# Creates the volume directory on your host
+volumes:
+  qdrant_storage:
+    driver_opts:
+      type: none
+      device: ./data/04_qdrant_storage
+      o: bind

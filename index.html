@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Cortexa Financial Intelligence</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            cortexa: { DEFAULT: '#00E5FF', dark: '#00B8CC' }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style type="text/tailwindcss">
+    @layer utilities {
+      .animate-fade-in { animation: fadeIn .4s ease both; }
+      @keyframes fadeIn { from {opacity:0; transform: translateY(6px)} to {opacity:1; transform:none} }
+      .no-scrollbar::-webkit-scrollbar { display: none }
+      .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none }
+    }
+    html, body { overscroll-behavior-y: none; }
+  </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col font-sans selection:bg-cortexa selection:text-slate-900">
+
+  <!-- Header -->
+  <header class="w-full p-6 border-b border-slate-800 bg-slate-950/50 sticky top-0 backdrop-blur-md z-10">
+    <div class="max-w-4xl mx-auto flex items-center gap-3">
+      <div class="w-8 h-8 bg-cortexa rounded-full flex items-center justify-center"></div>
+      <h1 class="text-2xl font-bold tracking-tight">
+        Cortexa
+        <span class="text-slate-500 font-normal text-base ml-2">Autonomous Financial Intelligence</span>
+      </h1>
+      <span id="api-status" class="ml-auto text-xs px-2.5 py-1 rounded-md border border-slate-700 text-slate-400">idle</span>
+    </div>
+  </header>
+
+  <!-- Main -->
+  <main class="flex-grow w-full">
+    <div class="max-w-4xl mx-auto w-full p-6 flex flex-col">
+      <div id="chat-container" class="flex-grow flex flex-col gap-6 pb-36 overflow-x-hidden">
+        <!-- Bot greeting -->
+        <div class="flex items-start animate-fade-in">
+          <div class="flex-shrink-0 bg-slate-800 rounded-md p-2 mr-3">🤖</div>
+          <div class="bg-slate-800 p-4 rounded-2xl rounded-tl-none max-w-[80%]">
+            <p class="leading-relaxed">Hello. I am Cortexa. I can provide market news analysis and RAG-enhanced quantitative signals. What would you like to know?</p>
+          </div>
+        </div>
+
+        <!-- Hidden Signal Card Template -->
+        <div id="signal-card-template" class="hidden w-full max-w-lg mx-auto my-4 bg-slate-800/50 border border-cortexa/30 rounded-2xl shadow-lg">
+          <div class="p-5">
+            <div class="flex items-center justify-between mb-4">
+              <h3 class="text-lg font-semibold text-white">RAG-Enhanced Signal</h3>
+              <span data-ticker class="font-mono text-cortexa bg-cortexa/10 px-2.5 py-1 rounded-md text-sm"></span>
+            </div>
+
+            <div class="text-center bg-slate-900/50 p-6 rounded-lg mb-4">
+              <div data-signal-text class="text-5xl font-bold tracking-wider">---</div>
+              <div data-signal-regime class="text-sm text-slate-400 mt-2"></div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3 text-sm">
+              <div class="bg-slate-900/50 p-3 rounded-lg">
+                <div class="text-slate-500">ML Model Prob.</div>
+                <div data-ml-prob class="text-xl font-semibold text-slate-100">--%</div>
+              </div>
+              <div class="bg-slate-900/50 p-3 rounded-lg">
+                <div class="text-slate-500">RAG Context Prob.</div>
+                <div data-rag-prob class="text-xl font-semibold text-slate-100">--%</div>
+              </div>
+              <div class="col-span-2 bg-slate-900/50 p-3 rounded-lg">
+                <div class="text-slate-500">RAG Context</div>
+                <div data-rag-context class="text-slate-100">--</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- /template -->
+      </div>
+    </div>
+  </main>
+
+  <!-- Composer -->
+  <div class="fixed bottom-0 left-0 w-full bg-slate-950/80 border-t border-slate-800 backdrop-blur-md p-4 sm:p-6">
+    <div class="max-w-4xl mx-auto">
+      <form id="query-form" class="flex items-stretch gap-3">
+        <textarea id="user-query" rows="1" placeholder="Ask about market sentiment, specific stocks (e.g., NVDA), or economic trends..."
+          class="flex-grow bg-slate-800 border border-slate-700 text-slate-100 rounded-xl px-4 py-3 sm:px-6 sm:py-4 focus:outline-none focus:ring-2 focus:ring-cortexa/50 placeholder-slate-500 resize-none leading-6"
+          autocomplete="off"></textarea>
+        <button type="submit" id="send-btn"
+          class="bg-cortexa hover:bg-cortexa-dark text-slate-900 font-semibold px-5 sm:px-8 py-3 sm:py-4 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2">
+          <span class="hidden sm:inline">Analyze</span>
+          <span class="sm:hidden">Go</span>
+        </button>
+      </form>
+      <p class="text-[11px] text-slate-500 mt-2">Press <kbd class="px-1 py-0.5 rounded bg-slate-800 border border-slate-700">Enter</kbd> to send, <kbd class="px-1 py-0.5 rounded bg-slate-800 border border-slate-700">Shift</kbd>+<kbd class="px-1 py-0.5 rounded bg-slate-800 border border-slate-700">Enter</kbd> for a new line.</p>
+    </div>
+  </div>
+
+  <script>
+    // --- DOM hooks ---
+    const form = document.getElementById('query-form');
+    const input = document.getElementById('user-query');
+    const chat = document.getElementById('chat-container');
+    const sendBtn = document.getElementById('send-btn');
+    const tpl = document.getElementById('signal-card-template');
+    const apiBadge = document.getElementById('api-status');
+
+    // --- Config ---
+    const API_BASE_URL = "http://127.0.0.1:8000";
+
+    // Stronger lookup map (includes multi-word aliases & ^GSPC)
+    const TICKER_LOOKUP = {
+      "AAPL": "AAPL", "APPLE": "AAPL", "APPL": "AAPL", "$AAPL": "AAPL", "$APPLE": "AAPL",
+      "MSFT": "MSFT", "MICROSOFT": "MSFT", "$MSFT": "MSFT",
+      "GOOGL": "GOOGL", "GOOGLE": "GOOGL", "ALPHABET": "GOOGL", "$GOOGL": "GOOGL",
+      "NVDA": "NVDA", "NVIDIA": "NVDA", "$NVDA": "NVDA",
+      "TSLA": "TSLA", "TESLA": "TSLA", "$TSLA": "TSLA",
+      "GSPC": "GSPC", "^GSPC": "GSPC", "S&P": "GSPC", "S&P500": "GSPC", "S&P 500": "GSPC", "SP500": "GSPC", "THE MARKET": "GSPC"
+    };
+
+    // --- Helpers ---
+    function scrollToBottom() { window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' }); }
+    function sanitizeHTML(str = "") { return str.replace(/[&<>"']/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s])); }
+    function setApiBadge(text, color="text-slate-400 border-slate-700") {
+      apiBadge.className = `ml-auto text-xs px-2.5 py-1 rounded-md border ${color}`;
+      apiBadge.textContent = text;
+    }
+
+    function addMessage(html, isUser=false) {
+      const wrap = document.createElement('div');
+      wrap.className = `flex items-start animate-fade-in ${isUser ? 'justify-end' : ''}`;
+      const avatar = isUser
+        ? '<div class="flex-shrink-0 bg-cortexa rounded-md p-2 ml-3 order-2">👤</div>'
+        : '<div class="flex-shrink-0 bg-slate-800 rounded-md p-2 mr-3">🤖</div>';
+      const bubble = document.createElement('div');
+      bubble.className = isUser
+        ? 'bg-cortexa/10 border border-cortexa/20 p-4 rounded-2xl rounded-tr-none max-w-[80%]'
+        : 'bg-slate-800 p-4 rounded-2xl rounded-tl-none max-w-[80%]';
+      bubble.innerHTML = html;
+      wrap.innerHTML = isUser ? bubble.outerHTML + avatar : avatar + bubble.outerHTML;
+      chat.appendChild(wrap);
+      scrollToBottom();
+    }
+
+    function addLoading() {
+      const id = 'loading-' + Date.now();
+      const wrap = document.createElement('div');
+      wrap.id = id;
+      wrap.className = 'flex items-start animate-pulse';
+      wrap.innerHTML = `
+        <div class="flex-shrink-0 bg-slate-800 rounded-md p-2 mr-3">🤖</div>
+        <div class="bg-slate-800 p-4 rounded-2xl rounded-tl-none flex items-center gap-2">
+          <div class="w-2 h-2 bg-slate-500 rounded-full animate-bounce"></div>
+          <div class="w-2 h-2 bg-slate-500 rounded-full animate-bounce" style="animation-delay:.2s"></div>
+          <div class="w-2 h-2 bg-slate-500 rounded-full animate-bounce" style="animation-delay:.4s"></div>
+          <span class="text-slate-500 text-sm ml-1">Synthesizing...</span>
+        </div>`;
+      chat.appendChild(wrap);
+      scrollToBottom();
+      return id;
+    }
+
+    function detectTicker(query) {
+      const cleaned = query.replace(/[.,!?():]/g, ' ').toUpperCase();
+      // Try exact map keys (including multi-word)
+      for (const alias in TICKER_LOOKUP) {
+        const pattern = alias.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+        const re = new RegExp(`(^|\\s|\\$)${pattern}(\\s|$)`);
+        if (re.test(cleaned)) return TICKER_LOOKUP[alias];
+      }
+      return null;
+    }
+
+    function showSignal(ticker, data) {
+      if (!data || data.signal === "No Data") {
+        addMessage(`<span class="text-yellow-400">Quantitative Signal: ${sanitizeHTML(data?.detail || 'No feature data found.')}</span>`);
+        return;
+      }
+      const card = tpl.cloneNode(true);
+      card.removeAttribute('id'); // ensure unique
+      card.classList.remove('hidden');
+      card.classList.add('animate-fade-in');
+
+      card.querySelector('[data-ticker]').textContent = (ticker || '').toUpperCase();
+      const txt = card.querySelector('[data-signal-text]');
+      txt.textContent = data.signal;
+
+      if ((data.signal || '').includes("BUY")) txt.classList.add('text-green-400');
+      else txt.classList.add('text-red-400');
+
+      card.querySelector('[data-ml-prob]').textContent = data.ml_probability || '--%';
+      card.querySelector('[data-rag-prob]').textContent = data.rag_probability || '--%';
+
+      const regime = data?.filter_used?.regime ?? '?';
+      card.querySelector('[data-signal-regime]').textContent = `Regime ${regime} | Score: ${data.combined_score || '--%'}`;
+
+      const ctxCount = Number.isFinite(data.rag_contexts_found) ? data.rag_contexts_found : 0;
+      card.querySelector('[data-rag-context]').textContent = `${ctxCount} similar historical contexts found in Regime ${regime}.`;
+
+      chat.appendChild(card);
+      scrollToBottom();
+    }
+
+    function renderSources(sources = []) {
+      if (!sources || !sources.length) return '';
+      const items = sources.slice(0,5).map(s => {
+        const title = sanitizeHTML(s.title || 'Source');
+        const link = s.link || '#';
+        const dom = sanitizeHTML((s.source || '').toString());
+        const date = sanitizeHTML((s.date || '').toString());
+        return `
+          <li class="leading-6">
+            <a href="${link}" target="_blank" rel="noopener noreferrer" class="text-cortexa hover:underline">${title}</a>
+            <span class="text-slate-400 text-xs ml-2">${dom}${date ? ' • ' + date : ''}</span>
+          </li>`;
+      }).join('');
+      return `
+        <div class="mt-3 pt-3 border-t border-slate-800">
+          <div class="text-slate-500 text-xs mb-1">Sources</div>
+          <ul class="list-disc list-inside space-y-1">${items}</ul>
+        </div>`;
+    }
+
+    // Auto-grow textarea, Enter submit
+    function autoGrow(el) {
+      el.style.height = 'auto';
+      el.style.height = (el.scrollHeight) + 'px';
+    }
+    input.addEventListener('input', () => autoGrow(input));
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        form.requestSubmit();
+      }
+    });
+
+    // --- Submit handler ---
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const query = input.value.trim();
+      if (!query) return;
+
+      addMessage(sanitizeHTML(query), true);
+      input.value = '';
+      autoGrow(input);
+      input.disabled = true;
+      sendBtn.disabled = true;
+      sendBtn.classList.add('opacity-60');
+      setApiBadge('working…', 'text-amber-400 border-amber-400/40');
+
+      const loadingId = addLoading();
+      const detectedTicker = detectTicker(query);
+
+      // Kick off signal fetch if a ticker is found
+      const signalPromise = detectedTicker
+        ? fetch(`${API_BASE_URL}/predict/${encodeURIComponent(detectedTicker)}`)
+            .then(async res => res.ok ? res.json() : Promise.reject(await res.json()))
+            .catch(err => ({ signal: "Error", detail: err?.detail || 'Signal fetch failed' }))
+        : Promise.resolve(null);
+
+      try {
+        const ragRes = await fetch(`${API_BASE_URL}/query`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: query })
+        });
+
+        const ragData = await ragRes.json().catch(() => ({}));
+        document.getElementById(loadingId)?.remove();
+
+        if (ragRes.ok && ragData && ragData.answer) {
+          const formatted = ragData.answer
+            .replace(/\*\*(.*?)\*\*/g, '<strong class="text-cortexa">$1</strong>')
+            .replace(/\n/g, '<br/>');
+          const sourcesHtml = renderSources(ragData.sources);
+          addMessage(`${formatted}${sourcesHtml}`);
+          setApiBadge('ok', 'text-green-400 border-green-400/40');
+        } else {
+          const msg = ragData?.detail || ragData?.answer || 'Failed to reach Cortexa core.';
+          addMessage(`<span class="text-yellow-400">RAG: ${sanitizeHTML(msg)}</span>`);
+          setApiBadge('partial', 'text-amber-400 border-amber-400/40');
+        }
+
+        // Resolve signal (if any)
+        const sig = await signalPromise;
+        if (sig) {
+          if (sig.signal === 'Error') {
+            addMessage(`<span class="text-yellow-400">Quantitative Signal: ${sanitizeHTML(sig.detail || 'Error')}</span>`);
+          } else {
+            showSignal(detectedTicker, sig);
+          }
+        }
+      } catch (err) {
+        document.getElementById(loadingId)?.remove();
+        addMessage(`<span class="text-red-400">Connection Error: Is server.py running?</span>`);
+        setApiBadge('offline', 'text-red-400 border-red-400/40');
+        console.error(err);
+      } finally {
+        input.disabled = false;
+        sendBtn.disabled = false;
+        sendBtn.classList.remove('opacity-60');
+        input.focus();
+      }
+    });
+  </script>
+</body>
+</html>
