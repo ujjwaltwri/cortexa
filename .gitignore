@@ -40,4 +40,6 @@ src/training/saved_models/walkforward/
 .prefect/
 prefect-task-run-logs/
 
-compose.yaml/
+docker-compose.yml
+compose.yamldocker-compose.yml
+compose.yaml
