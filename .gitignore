@@ -39,3 +39,5 @@ src/training/saved_models/walkforward/
 # Prefect cache and run data (local or ephemeral)
 .prefect/
 prefect-task-run-logs/
+
+compose.yaml
