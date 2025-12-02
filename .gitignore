@@ -1,0 +1,45 @@
+# --- General Python/Virtual Environment ---
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.pyc
+*.pyd
+*.so
+
+# Environments
+venv/
+.venv/
+.env
+.idea/
+.vscode/
+
+# Jupyter / IPython
+.ipynb_checkpoints
+
+# --- Data/Artifacts (Crucial for Cortexa) ---
+# Raw Ingested Data (Large CSVs)
+data/01_raw/
+
+# Processed Feature Data (Often large and changes often)
+data/02_processed/
+
+# Vector Database Storage (The Qdrant index itself)
+data/03_vectorstore/
+
+# Qdrant Storage (The Docker volume path)
+data/04_qdrant_storage/
+
+# --- ML Model Artifacts & Metadata ---
+# Saved model files (e.g., joblib/pkl files)
+src/training/saved_models/*.pkl
+src/training/saved_models/*.json
+src/training/saved_models/*.csv
+src/training/saved_models/walkforward/
+
+# --- Prefect Orchestration ---
+# Prefect cache and run data (local or ephemeral)
+.prefect/
+prefect-task-run-logs/
+
+docker-compose.yml
+config.yamldocker-compose.yml
+config.yaml
