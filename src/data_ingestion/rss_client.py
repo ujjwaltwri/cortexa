@@ -15,7 +15,7 @@ def clean_html(raw_html):
 
 def fetch_specific_ticker_news(tickers):
     """
-    Explicitly fetches news for each ticker using yfinance API.
+    Fetches news using the Google News RSS feed that we verified works.
     """
     print(f"--- 🎯 Hunting specific news for {len(tickers)} tickers ---")
     all_articles = []
@@ -24,33 +24,50 @@ def fetch_specific_ticker_news(tickers):
         clean_ticker = ticker.replace('^', '')
         print(f"  - Fetching news for: {clean_ticker}...")
         
+        # --- THE WORKING URL FROM YOUR TEST ---
+        # We removed "+outlook" to ensure we get the full firehose of data
+        google_news_url = (
+            f"https://news.google.com/rss/search?q={clean_ticker}+stock&hl=en-US&gl=US&ceid=US:en"
+        )
+        
+        try:
+            feed = feedparser.parse(google_news_url)
+            
+            if not feed.entries:
+                print(f"    Warning: No entries found for {clean_ticker} in Google RSS.")
+            
+            for entry in feed.entries:
+                summary = clean_html(entry.get('summary', '')) if entry.get('summary') else entry.get('title')
+                all_articles.append({
+                    'source': f"GoogleNews-{clean_ticker}",
+                    'title': entry.get('title', 'N/A'),
+                    'link': entry.get('link', '#'),
+                    'published': entry.get('published', datetime.now().isoformat()),
+                    'summary': summary,
+                    'ticker': clean_ticker # Vital tag for retrieval
+                })
+            
+        except Exception as e:
+            print(f"    Error fetching Google News for {clean_ticker}: {e}")
+
+        # Failover to Yahoo just in case
         try:
             stock = yf.Ticker(clean_ticker)
             news_items = stock.news
-            
-            if not news_items:
-                print(f"    (No news found for {clean_ticker})")
-                continue
-                
-            for item in news_items:
-                pub_time = item.get('providerPublishTime', 0)
-                pub_date = datetime.fromtimestamp(pub_time).isoformat() if pub_time else datetime.now().isoformat()
-                
-                article = {
-                    'source': f"YahooFinance-{clean_ticker}",
-                    'title': item.get('title', 'N/A'),
-                    'link': item.get('link', '#'),
-                    'published': pub_date,
-                    'summary': item.get('relatedTickers', [clean_ticker])[0] if 'relatedTickers' in item else item.get('title'),
-                    
-                    # --- CRITICAL FIX: Add the Ticker Tag ---
-                    'ticker': clean_ticker 
-                    # ----------------------------------------
-                }
-                all_articles.append(article)
-                
-        except Exception as e:
-            print(f"    Error fetching {clean_ticker}: {e}")
+            if news_items:
+                for item in news_items:
+                    pub_time = item.get('providerPublishTime', 0)
+                    pub_date = datetime.fromtimestamp(pub_time).isoformat() if pub_time else datetime.now().isoformat()
+                    all_articles.append({
+                        'source': f"YahooFinance-{clean_ticker}",
+                        'title': item.get('title', 'N/A'),
+                        'link': item.get('link', '#'),
+                        'published': pub_date,
+                        'summary': item.get('title'),
+                        'ticker': clean_ticker
+                    })
+        except Exception:
+            pass
             
     return all_articles
 
@@ -64,28 +81,26 @@ def fetch_rss_news(config_path="config.yaml") -> pd.DataFrame | None:
     
     all_articles = []
 
-    # 1. General RSS Feeds
+    # 1. Targeted Ticker News (PRIORITY)
+    ticker_articles = fetch_specific_ticker_news(tickers)
+    all_articles.extend(ticker_articles)
+
+    # 2. General RSS Feeds
     if rss_feeds:
         for feed_name, url in rss_feeds.items():
             try:
                 feed = feedparser.parse(url)
-                # print(f"  - Parsing RSS: {feed_name} ({len(feed.entries)} entries)")
                 for entry in feed.entries:
-                    article = {
+                    all_articles.append({
                         'source': feed_name,
                         'title': entry.get('title', 'N/A'),
                         'link': entry.get('link', 'N/A'),
                         'published': entry.get('published', datetime.now().isoformat()),
                         'summary': clean_html(entry.get('summary', '')),
-                        'ticker': None # General news has no specific ticker
-                    }
-                    all_articles.append(article)
-            except Exception as e:
-                print(f"Error parsing RSS feed {feed_name}: {e}")
-
-    # 2. Targeted Ticker News
-    ticker_articles = fetch_specific_ticker_news(tickers)
-    all_articles.extend(ticker_articles)
+                        'ticker': None 
+                    })
+            except Exception:
+                pass
     
     if not all_articles:
         print("\nNo articles fetched.")
