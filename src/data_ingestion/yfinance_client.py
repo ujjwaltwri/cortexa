@@ -4,7 +4,7 @@ import yaml
 from datetime import datetime
 from pathlib import Path
 
-def fetch_market_data(config_path="config.yaml", period="5y"):
+def fetch_market_data(config_path="config.yaml", period="max"):
     """
     Fetches historical market data for all tickers in the config.
     """

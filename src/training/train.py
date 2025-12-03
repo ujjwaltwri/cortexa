@@ -8,7 +8,7 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import accuracy_score, classification_report, roc_auc_score
 
 def train_model(config_path="config.yaml"):
-    print("--- 🧠 Cortexa: Training the Winning Brain (Random Forest) ---")
+    print("--- 🧠 Cortexa: Training the V2 Brain ---")
     
     # 1. Load Config & Data
     config = yaml.safe_load(open(config_path))
@@ -16,32 +16,25 @@ def train_model(config_path="config.yaml"):
     data_file = processed_path / "features_and_targets.csv"
     
     if not data_file.exists():
-        print("❌ Error: processed data not found.")
+        print("❌ Error: processed data not found. Run feature_engine_v2 first.")
         return
 
-    print("Loading smart dataset...")
+    print("Loading V2 dataset...")
     df = pd.read_csv(data_file, index_col=0, parse_dates=True)
     
-    # 2. FEATURE SELECTION
-    # The exact list that worked in the diagnostic
-    feature_cols = [
-        'open', 'high', 'low', 'close', 'volume', 
-        'FEDFUNDS', 'T10Y2Y', 'VIXCLS', 'UNRATE', 'PAYEMS', 
-        'VIX_change', 'market_regime', 'prev_close', 'gap', 
-        'close_loc', 'natr', 'rsi', 'roc_1', 'dist_sma20'
-    ]
+    # 2. DYNAMIC FEATURE SELECTION
+    # CRITICAL: We exclude 'fwd_ret' because that is the answer key!
+    exclude_cols = ['target', 'future_close', 'future_return', 'ticker', 'fwd_ret']
     
-    # Check if features exist
-    available_cols = [c for c in feature_cols if c in df.columns]
-    if len(available_cols) < len(feature_cols):
-        print(f"Warning: Missing features. Using: {available_cols}")
+    feature_cols = [c for c in df.columns if c not in exclude_cols]
     
-    X = df[available_cols]
-    y = df['target'] # Ensure this matches your feature_engine output
+    X = df[feature_cols]
+    y = df['target']
     
-    print(f"Training on {len(X)} rows with {len(available_cols)} features.")
+    print(f"Training on {len(X)} rows with {len(feature_cols)} features.")
+    print(f"Features: {feature_cols}")
 
-    # 3. Time-Based Split
+    # 3. Time-Based Split (80% Train, 20% Test)
     split_idx = int(len(X) * 0.8)
     X_train, X_test = X.iloc[:split_idx], X.iloc[split_idx:]
     y_train, y_test = y.iloc[:split_idx], y.iloc[split_idx:]
@@ -49,15 +42,16 @@ def train_model(config_path="config.yaml"):
     print(f"Training Data: {len(X_train)} rows")
     print(f"Testing Data:  {len(X_test)} rows")
 
-    # 4. Train Random Forest
+    # 4. Train Random Forest (Robust Baseline)
     print("\nTraining Model...")
     model = RandomForestClassifier(
         n_estimators=200,
-        max_depth=None,
-        min_samples_leaf=5,
+        max_depth=10,         # Constrain depth to prevent memorizing noise
+        min_samples_leaf=20,  # Require significant evidence per decision
         random_state=42,
         n_jobs=-1
     )
+    
     model.fit(X_train, y_train)
 
     # 5. Evaluate
@@ -71,22 +65,22 @@ def train_model(config_path="config.yaml"):
     print(f"Accuracy: {acc:.2%}")
     print(f"ROC-AUC:  {auc:.4f}")
     
-    # 6. Save Artifacts (Correctly Named)
+    # 6. Save Artifacts
     save_dir = Path(config["ml_models"]["saved_models"])
     save_dir.mkdir(parents=True, exist_ok=True)
     
-    # SAVE AS RF_MODEL.PKL (Fixing the confusion)
+    # We save as 'rf_model.pkl' (The current standard for the server)
     joblib.dump(model, save_dir / "rf_model.pkl")
     
     metadata = {
-        "features": available_cols,
+        "features": feature_cols,
         "metrics": {"accuracy": acc, "roc_auc": auc},
         "threshold": 0.5 
     }
     with open(save_dir / "model_metadata.json", "w") as f:
         json.dump(metadata, f)
         
-    print(f"✅ Random Forest saved to: {save_dir}/rf_model.pkl")
+    print(f"✅ V2 Brain saved to: {save_dir}/rf_model.pkl")
 
 if __name__ == "__main__":
     train_model()

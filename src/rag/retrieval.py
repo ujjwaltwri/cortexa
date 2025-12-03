@@ -4,10 +4,11 @@ import yaml
 
 def query_vector_db(query, ticker=None, config_path="config.yaml"):
     """
-    Retrieves relevant news articles from the Qdrant vector database.
-    Enforces a strict ticker filter if one is provided. No fallback to broad search.
+    Retrieves relevant news articles.
+    Fixes the 'missing context' bug by INJECTING the ticker into the search text
+    instead of relying solely on metadata filters.
     """
-    print(f"--- Querying Vector DB with: '{query}' (Ticker Filter: {ticker or 'None'}) ---")
+    print(f"--- Querying Vector DB with: '{query}' (Ticker Hint: {ticker}) ---")
     
     try:
         # 1. Load Config
@@ -21,27 +22,31 @@ def query_vector_db(query, ticker=None, config_path="config.yaml"):
         # 2. Init Components
         embedder = Embedder()
         db = QdrantVecDB() 
-        query_vec = embedder.encode([query])[0]
         
-        # 3. Build Filter (Strict)
-        search_filters = {"event_type": "news"}
+        # 3. THE FIX: Inject Ticker into Query
+        # This forces the vector to align with the specific stock
         if ticker:
-            search_filters["ticker"] = ticker.upper()
-            print(f"Applying strict ticker filter: {search_filters['ticker']}")
-
-        # 4. Search
-        results = db.search(query_vec, top_k=top_k, filters=search_filters)
+            search_text = f"News and outlook for {ticker}: {query}"
+        else:
+            search_text = query
+            
+        query_vec = embedder.encode([search_text])[0]
         
-        # 5. Return Results (If results is empty, it returns clean empty lists)
+        # 4. Semantic Search (No Strict Filter)
+        # We remove the strict 'ticker' filter because metadata tags can be messy.
+        # We trust the 'search_text' injection to find the right articles.
+        results = db.search(query_vec, top_k=top_k, filters={"event_type": "news"})
+        
         if not results:
-            print("[RAG] No articles found matching strict filter.")
+            print("No results found in Qdrant.")
             return {"documents": [[]], "metadatas": [[]]}
 
-        # 6. Format for the Agent
+        # 5. Format for Agent
         documents = [r['text'] for r in results]
         metadatas = [r['meta'] for r in results]
         
-        print(f"Found {len(documents)} relevant news articles.")
+        # DEBUG: Print what we actually found
+        print(f"Found {len(documents)} articles. Top result: {metadatas[0].get('title', 'Unknown')}")
         
         return {
             "documents": [documents], 
@@ -54,5 +59,5 @@ def query_vector_db(query, ticker=None, config_path="config.yaml"):
 
 if __name__ == "__main__":
     # Test
-    res = query_vector_db("outlook on MSFT", ticker="MSFT")
+    res = query_vector_db("outlook", ticker="GOOGL")
     print(res)

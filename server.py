@@ -3,12 +3,23 @@ from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 from contextlib import asynccontextmanager
+import re
 
-# --- IMPORT THE ROBUST LOGIC WE ALREADY BUILT ---
+# Import your project's core components
 from src.rag.retrieval import query_vector_db
 from src.reasoning.agent import get_llm_reasoning
-from src.signals.rag_signal import RAGSignalEngine  # <--- Uses the fix
+from src.signals.rag_signal import RAGSignalEngine 
 from src.utils import get_current_regime, get_latest_features
+
+# --- Ticker Mapping (For Qualitative Search) ---
+TICKER_MAP = {
+    "apple": "AAPL", "aapl": "AAPL", "appl": "AAPL",
+    "google": "GOOGL", "googl": "GOOGL", "alphabet": "GOOGL", "goog": "GOOGL",
+    "microsoft": "MSFT", "msft": "MSFT",
+    "nvidia": "NVDA", "nvda": "NVDA",
+    "tesla": "TSLA", "tsla": "TSLA",
+    "sp500": "GSPC", "market": "GSPC", "s&p": "GSPC"
+}
 
 # --- Global State ---
 cortexa_models = {}
@@ -17,14 +28,14 @@ cortexa_models = {}
 async def lifespan(app: FastAPI):
     print("--- 🚀 Server starting up... ---")
     
-    # Load the engine (This will now correctly find rf_model.pkl)
+    # 1. Load RAG Signal Engine
     try:
         cortexa_models["rag_engine"] = RAGSignalEngine.from_artifacts("config.yaml")
         print("✅ RAGSignalEngine loaded.")
     except Exception as e:
         print(f"❌ Failed to load RAGSignalEngine: {e}")
 
-    # Load the regime
+    # 2. Load Current Regime
     try:
         cortexa_models["current_regime"] = get_current_regime("config.yaml")
         print(f"✅ Current Regime loaded: {cortexa_models['current_regime']}")
@@ -48,25 +59,40 @@ app.add_middleware(
 class QueryRequest(BaseModel):
     text: str
 
+def detect_ticker_from_text(text):
+    """Simple helper to find a ticker in the user's query."""
+    text = text.lower()
+    for key, ticker in TICKER_MAP.items():
+        if re.search(r'\b' + re.escape(key) + r'\b', text):
+            return ticker
+    return None
+
 @app.get("/")
 def read_root():
     return {"status": "Cortexa API is running"}
 
 @app.post("/query")
 def run_cortexa_pipeline(request: QueryRequest):
-    """Qualitative RAG Endpoint"""
+    """Qualitative RAG Endpoint (News & Context)"""
     print(f"API received RAG query: {request.text}")
+    
+    # 1. Detect Ticker
+    detected_ticker = detect_ticker_from_text(request.text)
+    if detected_ticker:
+        print(f"Detected ticker in query: {detected_ticker}")
+    
     try:
-        context = query_vector_db(request.text, config_path="config.yaml")
+        # 2. Retrieval (Pass Ticker for Strict Filtering)
+        context = query_vector_db(request.text, ticker=detected_ticker, config_path="config.yaml")
         
-        # Handle empty context gracefully
         if not context or not context.get('documents') or not context['documents'][0]:
              return {"answer": "I could not find any relevant data in my knowledge base.", "sources": []}
 
+        # 3. Synthesis
         answer = get_llm_reasoning(request.text, context)
         
+        # 4. Format Sources
         sources = []
-        # Safely parse sources
         if 'metadatas' in context and context['metadatas']:
             for i, meta in enumerate(context['metadatas'][0]):
                 sources.append({
@@ -83,7 +109,7 @@ def run_cortexa_pipeline(request: QueryRequest):
 
 @app.get("/predict/{ticker}")
 def get_prediction_endpoint(ticker: str):
-    """Quantitative ML Endpoint"""
+    """Quantitative ML Endpoint (Signals)"""
     print(f"API received prediction request for: {ticker}")
     
     engine = cortexa_models.get("rag_engine")
@@ -93,20 +119,26 @@ def get_prediction_endpoint(ticker: str):
     # 1. Get Features
     latest_row = get_latest_features(ticker)
     if latest_row is None:
-        return {"signal": "No Data", "detail": f"No data found for {ticker}"}
+        return {"signal": "No Data", "detail": f"No feature data found for {ticker}"}
         
     # 2. Get Regime
     current_regime = cortexa_models.get("current_regime", 0)
     latest_row['market_regime'] = current_regime
     
-    # 3. Score
     try:
-        # This calls the robust .score() method in src/signals/rag_signal.py
-        # which handles feature alignment automatically!
+        # 3. Score
         signal_output = engine.score(latest_row)
         
+        # --- LABEL LOGIC FIX ---
+        # If decision is 1 -> BUY
+        # If decision is 0 -> HOLD (Neutral), not Sell
+        if signal_output.decision == 1:
+            signal_text = "BUY (UP)"
+        else:
+            signal_text = "NEUTRAL / HOLD"
+
         return {
-            "signal": "BUY (UP)" if signal_output.decision == 1 else "SELL (DOWN/SAME)",
+            "signal": signal_text,
             "ml_probability": f"{signal_output.proba_ml * 100:.2f}%",
             "rag_probability": f"{signal_output.proba_rag * 100:.2f}%",
             "combined_score": f"{signal_output.final_score * 100:.2f}%",
