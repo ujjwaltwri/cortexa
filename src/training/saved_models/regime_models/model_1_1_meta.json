@@ -1,1 +1,1 @@
-{"regime": "1_1", "features": ["natr", "vol_ratio", "dist_sma_50", "rsi", "rvol", "ret_1d", "realized_vol_20d", "vol_change", "range_5d", "trend_strength_sq", "trend_x_vol", "vix_chg"], "count": 33708}
+{"features": ["dist_sma_50", "rsi", "natr", "trend_x_vol", "rvol", "dist_vwap", "realized_vol", "vix_chg"], "regime": "1_1"}
