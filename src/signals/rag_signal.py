@@ -12,6 +12,13 @@ from src.rag.embeddings import Embedder
 from src.rag.vector_store import QdrantVecDB
 from src.utils import get_latest_features 
 
+# --- Fix for loading CalibratedClassifierCV models ---
+class FrozenEstimator:
+    def __init__(self, estimator): self.estimator = estimator
+    def predict(self, X): return self.estimator.predict(X)
+    def predict_proba(self, X): return self.estimator.predict_proba(X)
+# -----------------------------------------------------
+
 @dataclass
 class SignalOutput:
     proba_ml: float
@@ -21,98 +28,118 @@ class SignalOutput:
     context: Dict[str, Any]
 
 class RAGSignalEngine:
-    def __init__(self, models: Dict[str, Any], embedder: Embedder, vecdb: QdrantVecDB):
-        self.models = models # Dict of {regime: {model: clf, features: [cols]}}
+    def __init__(self, 
+                 models: Dict[str, BaseEstimator], 
+                 ml_features: List[str], 
+                 embedder: Embedder, 
+                 vecdb: QdrantVecDB, 
+                 w_ml=0.7, 
+                 w_rag=0.3, 
+                 final_threshold=0.50):
+        
+        self.models = models
+        self.ml_features = ml_features
         self.embedder = embedder
         self.vecdb = vecdb
-        print(f"--- RAGSignalEngine Ready ({len(models)} Regimes) ---")
+        self.w_ml = w_ml
+        self.w_rag = w_rag
+        self.final_threshold = final_threshold
+        print(f"--- RAGSignalEngine Initialized (Loaded {len(models)} Regime Models) ---")
 
     @classmethod
     def from_artifacts(cls, config_path="config.yaml"):
+        print("--- Initializing RAGSignalEngine from artifacts ---")
         try:
             config = yaml.safe_load(open(config_path))
             saved_dir = Path(config['ml_models']['saved_models'])
             regime_dir = saved_dir / "regime_models"
-        except: return None
+        except Exception as e:
+            print(f"Error loading config: {e}")
+            return None
         
-        # Load Model AND Feature List per Regime
-        models_data = {}
+        # 1. Load ALL Regime Models
+        models = {}
         regimes = ['1_0', '1_1', '0_0', '0_1']
         
+        print("Loading Regime Snipers...")
         for r in regimes:
-            model_path = regime_dir / f"model_{r}.pkl"
-            meta_path = regime_dir / f"model_{r}_meta.json"
-            
-            if model_path.exists() and meta_path.exists():
-                clf = joblib.load(model_path)
-                meta = json.load(open(meta_path))
-                # Store both the classifier and its specific feature list
-                models_data[r] = {
-                    "model": clf,
-                    "features": meta["features"]
-                }
-        
-        if not models_data:
-            print("CRITICAL: No regime models/metadata found.")
+            path = regime_dir / f"model_{r}.pkl"
+            if path.exists():
+                models[r] = joblib.load(path)
+            else:
+                print(f"  Warning: Missing model for {r}")
+
+        if not models:
+            print("CRITICAL: No regime models found. Run src/training/train_regime.py")
             return None
 
+        # 2. Define Features (Hardcoded to match Feature Engine V3)
+        ml_features = [
+            'natr', 'vol_ratio', 'dist_sma_50', 'rsi', 'rvol', 
+            'ret_1d', 'realized_vol_20d', 'vol_change', 'range_5d', 
+            'trend_strength_sq', 'trend_x_vol', 'vix_chg'
+        ]
+        
+        # 3. Init RAG
         try:
             embedder = Embedder() 
             vecdb = QdrantVecDB(vector_size=384) 
-        except: return None
+        except Exception as e:
+            print(f"Error connecting to RAG components: {e}")
+            return None
         
-        return cls(models_data, embedder, vecdb)
+        return cls(models, ml_features, embedder, vecdb)
 
-    def _current_state_text(self, row: pd.Series, features: List[str]) -> str:
-        pieces = [f"{k}:{float(row[k]):.4f}" for k in features if k in row and isinstance(row[k], (int, float))]
+    def _current_state_text(self, row: pd.Series) -> str:
+        pieces = [f"{k}:{float(row[k]):.4f}" for k in self.ml_features if k in row and np.isfinite(row[k])]
         return " ".join(pieces)
 
     def score(self, row: pd.Series) -> SignalOutput:
-        # 1. Identify Regime from the row itself (V3 data has this)
+        
+        # 1. Identify Regime
         regime = str(row.get('regime_tag', '1_0'))
         
-        # Get the specific model bundle for this regime
-        bundle = self.models.get(regime)
-        if not bundle:
+        # --- REGIME ROUTING ---
+        model = self.models.get(regime)
+        if not model:
             # Fallback
-            bundle = list(self.models.values())[0]
-        
-        model = bundle["model"]
-        feature_list = bundle["features"] # The EXACT features this model wants
+            model = self.models.get('1_0')
+            if not model: return SignalOutput(0.5, 0.5, 0.0, 0, {})
 
-        # --- ML PROBABILITY (Aligned) ---
+        # Dynamic Thresholds
+        thresholds = {'0_1': 0.55, '1_1': 0.56, '1_0': 0.58, '0_0': 0.60}
+        threshold = thresholds.get(regime, 0.55)
+
+        # 2. ML PROBABILITY
         try:
-            # Create DataFrame with ONLY the required features in correct order
-            input_data = {k: [row.get(k, 0.0)] for k in feature_list}
-            X_live = pd.DataFrame(input_data)
-            X_live = X_live[feature_list] # Enforce order
-            
+            X_live = pd.DataFrame([row[self.ml_features].to_dict()])
+            for f in self.ml_features:
+                if f not in X_live.columns: X_live[f] = 0.0
             proba_ml = float(model.predict_proba(X_live)[0, 1])
         except Exception as e:
             print(f"ML Pred Error: {e}")
             proba_ml = 0.5
 
-        # --- RAG PROBABILITY (V3) ---
-        q_text = self._current_state_text(row, feature_list)
+        # 3. RAG PROBABILITY
+        q_text = self._current_state_text(row)
         q_vec = self.embedder.encode([q_text])[0]
         
-        # Filter by SAME regime tag
-        filters = {"regime": regime}
+        # Filter RAG by SAME regime
+        # Note: We use the string 'regime_tag' from the row (e.g. '1_0')
+        # But the database might store it as 'regime' (int).
+        # Since V3 backfill stores 'regime' as string "1_0", we use that.
+        filters = {"regime": regime} 
+        
         hits = self.vecdb.search(q_vec, top_k=30, filters=filters)
 
         if len(hits) < 3:
             proba_rag = 0.5
         else:
             wins = sum([h['meta'].get('target', 0) for h in hits])
-            # Laplace Smoothing
             proba_rag = (wins + 1) / (len(hits) + 2)
 
-        # --- Thresholds ---
-        # Conservative thresholds for live trading
-        threshold = 0.58 if regime == '1_0' else 0.55
-        
-        # Combine
-        final_score = (0.6 * proba_ml) + (0.4 * proba_rag)
+        # 4. COMBINE
+        final_score = (self.w_ml * proba_ml) + (self.w_rag * proba_rag)
         decision = int(final_score >= threshold)
 
         return SignalOutput(
@@ -120,28 +147,17 @@ class RAGSignalEngine:
             proba_rag=proba_rag, 
             final_score=final_score, 
             decision=decision,
-            context={"regime": regime, "hits": hits[:5], "filters": filters}
+            # --- FIX: Ensure 'filters' is included in context ---
+            context={
+                "regime": regime, 
+                "hits": hits[:5],
+                "filters": filters,  # <--- THIS WAS MISSING
+                "threshold": threshold
+            }
         )
 
-# --- UPDATED TEST BLOCK: Multi-Ticker Check ---
 if __name__ == "__main__":
-    print("--- Testing Cortexa 3.0 (Multi-Ticker) ---")
+    print("--- Testing Multi-Regime Engine ---")
     engine = RAGSignalEngine.from_artifacts("config.yaml")
-    
     if engine:
-        # List of tickers to check
-        tickers = ["AAPL", "NVDA", "TSLA", "MSFT", "GOOGL"]
-        
-        print(f"\n{'TICKER':<8} | {'REGIME':<8} | {'ML':<8} | {'RAG':<8} | {'SCORE':<8} | {'DECISION'}")
-        print("-" * 65)
-        
-        for t in tickers:
-            test_row = get_latest_features(ticker=t)
-            
-            if test_row is not None:
-                res = engine.score(test_row)
-                decision_str = "✅ BUY" if res.decision else "❌ HOLD"
-                
-                print(f"{t:<8} | {res.context['regime']:<8} | {res.proba_ml:.2%}   | {res.proba_rag:.2%}   | {res.final_score:.2%}   | {decision_str}")
-            else:
-                print(f"{t:<8} | -- NO DATA --")
+        print("Engine Loaded. Ready for Server.")
