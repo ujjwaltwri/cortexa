@@ -1,588 +1,376 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="dark">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Cortexa Financial Intelligence</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-
-  <style>
-    * { 
-      font-family: 'Inter', system-ui, -apple-system, sans-serif;
-      font-variant-numeric: tabular-nums;
-    }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CORTEXA | Autonomous Financial Intelligence</title>
     
-    html, body { 
-      overscroll-behavior-y: none;
-      -webkit-font-smoothing: antialiased;
-      -moz-osx-font-smoothing: grayscale;
-    }
+    <!-- Fonts: Inter for UI, JetBrains Mono for Data -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        bg: '#030712',      // Ultra-dark blue/black
+                        surface: '#0F172A', // Slate-900
+                        border: '#1E293B',  // Slate-800
+                        primary: '#06B6D4', // Cyan-500
+                        accent: '#8B5CF6',  // Violet-500
+                        success: '#10B981', // Emerald-500
+                        danger: '#F43F5E',  // Rose-500
+                    },
+                    animation: {
+                        'fade-in-up': 'fadeInUp 0.5s ease-out forwards',
+                        'pulse-slow': 'pulse 3s infinite',
+                    },
+                    keyframes: {
+                        fadeInUp: {
+                            '0%': { opacity: '0', transform: 'translateY(10px)' },
+                            '100%': { opacity: '1', transform: 'translateY(0)' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
 
-    @keyframes fadeIn { 
-      from { opacity: 0; transform: translateY(16px) scale(0.98); } 
-      to { opacity: 1; transform: translateY(0) scale(1); } 
-    }
-
-    @keyframes slideUp { 
-      from { opacity: 0; transform: translateY(24px); } 
-      to { opacity: 1; transform: translateY(0); } 
-    }
-
-    @keyframes pulse {
-      0%, 100% { opacity: 0.3; }
-      50% { opacity: 1; }
-    }
-
-    @keyframes shimmer {
-      0% { transform: translateX(-100%); }
-      100% { transform: translateX(100%); }
-    }
-
-    .animate-fade-in { 
-      animation: fadeIn 0.7s cubic-bezier(0.16, 1, 0.3, 1) both; 
-    }
-
-    .animate-slide-up { 
-      animation: slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) both; 
-    }
-
-    .message-bubble {
-      backdrop-filter: blur(8px);
-    }
-
-    .signal-card {
-      background: linear-gradient(135deg, #ffffff 0%, #fafafa 100%);
-    }
-
-    textarea:focus {
-      box-shadow: 0 0 0 4px rgba(0, 0, 0, 0.04);
-    }
-
-    .send-btn {
-      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-    }
-
-    .send-btn:hover:not(:disabled) {
-      transform: translateY(-2px);
-      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
-    }
-
-    .send-btn:active:not(:disabled) {
-      transform: translateY(0);
-    }
-
-    .source-link {
-      transition: all 0.2s ease;
-    }
-
-    .source-link:hover {
-      transform: translateX(4px);
-    }
-
-    ::-webkit-scrollbar {
-      width: 6px;
-    }
-
-    ::-webkit-scrollbar-track {
-      background: transparent;
-    }
-
-    ::-webkit-scrollbar-thumb {
-      background: #e5e5e5;
-      border-radius: 3px;
-    }
-
-    ::-webkit-scrollbar-thumb:hover {
-      background: #d4d4d4;
-    }
-
-    .status-indicator {
-      position: relative;
-      display: inline-block;
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: #22c55e;
-    }
-
-    .status-indicator::before {
-      content: '';
-      position: absolute;
-      inset: -3px;
-      border-radius: 50%;
-      background: #22c55e;
-      opacity: 0.2;
-      animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-    }
-
-    .logo-shape {
-      position: relative;
-      background: linear-gradient(135deg, #000000 0%, #1a1a1a 100%);
-      box-shadow: 
-        0 10px 40px rgba(0, 0, 0, 0.2),
-        inset 0 1px 0 rgba(255, 255, 255, 0.1);
-    }
-
-    .logo-shape::after {
-      content: '';
-      position: absolute;
-      inset: 0;
-      border-radius: inherit;
-      padding: 1px;
-      background: linear-gradient(135deg, rgba(255,255,255,0.2), rgba(255,255,255,0));
-      -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-      -webkit-mask-composite: xor;
-      mask-composite: exclude;
-    }
-
-    .stat-card {
-      background: linear-gradient(135deg, #ffffff 0%, #fafafa 100%);
-      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-    }
-
-    .stat-card:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.08);
-    }
-
-    .quick-action {
-      transition: all 0.2s ease;
-    }
-
-    .quick-action:hover {
-      background: #fafafa;
-      transform: translateX(2px);
-    }
-
-    .shimmer {
-      position: relative;
-      overflow: hidden;
-    }
-
-    .shimmer::after {
-      content: '';
-      position: absolute;
-      top: 0;
-      right: 0;
-      bottom: 0;
-      left: 0;
-      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.8), transparent);
-      animation: shimmer 2s infinite;
-    }
-  </style>
-</head>
-<body class="bg-gradient-to-br from-neutral-50 via-white to-neutral-50 text-neutral-900 min-h-screen flex flex-col">
-
-  <!-- Header -->
-  <header class="w-full py-6 px-6 bg-white/70 backdrop-blur-2xl border-b border-neutral-200/50 sticky top-0 z-50">
-    <div class="max-w-7xl mx-auto flex items-center justify-between">
-      <div class="flex items-center gap-4">
-        <div class="logo-shape w-11 h-11 rounded-2xl flex items-center justify-center">
-          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M3 10L8 5L13 10L8 15L3 10Z" fill="white" fill-opacity="0.9"/>
-            <path d="M8 5L13 10L17 6L12 1L8 5Z" fill="white" fill-opacity="0.6"/>
-          </svg>
-        </div>
-        <div>
-          <h1 class="text-xl font-semibold tracking-tight text-neutral-900">
-            Cortexa
-          </h1>
-          <p class="text-[11px] text-neutral-500 tracking-wide">Financial Intelligence Platform</p>
-        </div>
-      </div>
-      <div class="flex items-center gap-3">
-        <div class="status-indicator"></div>
-        <div id="api-status" class="text-xs font-medium text-neutral-500"></div>
-      </div>
-    </div>
-  </header>
-
-  <!-- Dashboard Stats -->
-  <div class="w-full bg-white/40 backdrop-blur-xl border-b border-neutral-200/50 py-6">
-    <div class="max-w-7xl mx-auto px-6">
-      <div class="grid grid-cols-3 gap-4">
-        <div class="stat-card border border-neutral-200/60 rounded-2xl p-4 shadow-sm">
-          <div class="text-xs text-neutral-500 mb-1 tracking-wide uppercase font-medium">Active Signals</div>
-          <div class="text-2xl font-semibold text-neutral-900">24</div>
-        </div>
-        <div class="stat-card border border-neutral-200/60 rounded-2xl p-4 shadow-sm">
-          <div class="text-xs text-neutral-500 mb-1 tracking-wide uppercase font-medium">Market Regime</div>
-          <div class="text-2xl font-semibold text-neutral-900">High Vol</div>
-        </div>
-        <div class="stat-card border border-neutral-200/60 rounded-2xl p-4 shadow-sm">
-          <div class="text-xs text-neutral-500 mb-1 tracking-wide uppercase font-medium">Accuracy</div>
-          <div class="text-2xl font-semibold text-emerald-600">87%</div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Main -->
-  <main class="flex-grow w-full overflow-hidden">
-    <div class="max-w-7xl mx-auto w-full px-6 py-12">
-      <div class="grid grid-cols-12 gap-6">
+    <style>
+        body { background-color: #030712; color: #E2E8F0; }
         
-        <!-- Chat Area -->
-        <div class="col-span-12 lg:col-span-8">
-          <div id="chat-container" class="flex flex-col gap-8 pb-32">
-            <!-- Bot greeting -->
-            <div class="flex justify-start animate-fade-in" style="animation-delay: 0.1s">
-              <div class="max-w-2xl">
-                <div class="message-bubble inline-block bg-white/90 border border-neutral-200/60 shadow-lg shadow-neutral-900/5 px-6 py-4 rounded-[24px]">
-                  <p class="text-[15px] leading-relaxed text-neutral-700">
-                    Hello. I am Cortexa. I can provide market news analysis and RAG-enhanced quantitative signals. What would you like to know?
-                  </p>
+        /* Glassmorphism */
+        .glass {
+            background: rgba(15, 23, 42, 0.6);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .glass-panel {
+            background: linear-gradient(145deg, rgba(30, 41, 59, 0.4) 0%, rgba(15, 23, 42, 0.6) 100%);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(148, 163, 184, 0.1);
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
+        }
+
+        /* Cyberpunk Glows */
+        .glow-text { text-shadow: 0 0 10px rgba(6, 182, 212, 0.5); }
+        .glow-border { box-shadow: 0 0 15px -3px rgba(6, 182, 212, 0.1); }
+        
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #475569; }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col antialiased selection:bg-cyan-500/30 selection:text-cyan-200">
+
+    <!-- Ambient Background -->
+    <div class="fixed inset-0 pointer-events-none z-0">
+        <div class="absolute top-0 left-0 w-full h-96 bg-gradient-to-b from-cyan-900/10 to-transparent opacity-40"></div>
+        <div class="absolute bottom-0 right-0 w-[500px] h-[500px] bg-purple-900/10 rounded-full blur-[128px]"></div>
+    </div>
+
+    <!-- Header -->
+    <header class="fixed w-full top-0 z-50 glass border-b border-white/5">
+        <div class="max-w-3xl mx-auto px-6 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <!-- Animated Status Dot -->
+                <div class="relative flex h-2.5 w-2.5">
+                  <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
+                  <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-cyan-500"></span>
                 </div>
-              </div>
+                <h1 class="font-bold text-lg tracking-widest text-slate-100 font-mono">
+                    CORTEXA <span class="text-cyan-500 text-xs opacity-70">v3.0</span>
+                </h1>
             </div>
-
-            <!-- Hidden Signal Card Template -->
-            <div id="signal-card-template" class="hidden w-full">
-              <div class="signal-card border border-neutral-200/60 shadow-xl shadow-neutral-900/10 rounded-3xl overflow-hidden">
-                <div class="p-8">
-                  <div class="flex items-center justify-between mb-8">
-                    <div>
-                      <h3 class="text-xs font-semibold text-neutral-400 tracking-widest uppercase mb-1">Signal Analysis</h3>
-                      <p class="text-sm text-neutral-600">Real-time quantitative assessment</p>
-                    </div>
-                    <span data-ticker class="font-mono text-sm font-bold text-neutral-900 bg-neutral-100 px-4 py-2 rounded-full border border-neutral-200/60"></span>
-                  </div>
-
-                  <div class="relative text-center bg-gradient-to-br from-neutral-50 to-white border border-neutral-200/40 p-12 rounded-2xl mb-8 overflow-hidden">
-                    <div class="absolute inset-0 bg-gradient-to-br from-neutral-100/20 to-transparent"></div>
-                    <div class="relative">
-                      <div data-signal-text class="text-6xl font-light tracking-tight mb-3">---</div>
-                      <div data-signal-regime class="text-xs text-neutral-500 tracking-widest uppercase"></div>
-                    </div>
-                  </div>
-
-                  <div class="grid grid-cols-2 gap-4 mb-5">
-                    <div class="bg-white/50 border border-neutral-200/40 p-5 rounded-xl">
-                      <div class="text-xs text-neutral-500 mb-2 tracking-wide uppercase">ML Probability</div>
-                      <div data-ml-prob class="text-2xl font-light text-neutral-900">--%</div>
-                    </div>
-                    <div class="bg-white/50 border border-neutral-200/40 p-5 rounded-xl">
-                      <div class="text-xs text-neutral-500 mb-2 tracking-wide uppercase">RAG Probability</div>
-                      <div data-rag-prob class="text-2xl font-light text-neutral-900">--%</div>
-                    </div>
-                  </div>
-
-                  <div class="bg-white/50 border border-neutral-200/40 p-5 rounded-xl">
-                    <div class="text-xs text-neutral-500 mb-2 tracking-wide uppercase">Context Analysis</div>
-                    <div data-rag-context class="text-sm text-neutral-700 leading-relaxed">--</div>
-                  </div>
-                </div>
-              </div>
+            <div class="text-[10px] font-mono text-slate-500 tracking-tight">
+                SYSTEM ONLINE // REGIME AWARE
             </div>
-          </div>
         </div>
+    </header>
 
-        <!-- Sidebar -->
-        <div class="col-span-12 lg:col-span-4">
-          <div class="sticky top-32 space-y-6">
+    <!-- Main Content -->
+    <main class="flex-grow relative z-10 pt-24 pb-32 px-4">
+        <div class="max-w-3xl mx-auto">
             
-            <!-- Quick Actions -->
-            <div class="bg-white/90 border border-neutral-200/60 rounded-2xl p-5 shadow-lg">
-              <h3 class="text-xs font-semibold text-neutral-500 tracking-widest uppercase mb-4">Quick Actions</h3>
-              <div class="space-y-2">
-                <button class="quick-action w-full text-left px-4 py-3 rounded-xl border border-neutral-200/60 text-sm text-neutral-700 hover:text-neutral-900">
-                  Analyze S&P 500
-                </button>
-                <button class="quick-action w-full text-left px-4 py-3 rounded-xl border border-neutral-200/60 text-sm text-neutral-700 hover:text-neutral-900">
-                  Tech Sector Summary
-                </button>
-                <button class="quick-action w-full text-left px-4 py-3 rounded-xl border border-neutral-200/60 text-sm text-neutral-700 hover:text-neutral-900">
-                  Latest Market News
-                </button>
-                <button class="quick-action w-full text-left px-4 py-3 rounded-xl border border-neutral-200/60 text-sm text-neutral-700 hover:text-neutral-900">
-                  Volatility Report
-                </button>
-              </div>
+            <!-- Chat History -->
+            <div id="chat-container" class="space-y-8">
+                
+                <!-- Intro Message -->
+                <div class="flex gap-4 animate-fade-in-up">
+                    <div class="w-8 h-8 rounded-lg bg-slate-800/80 border border-white/10 flex items-center justify-center flex-shrink-0 shadow-lg">
+                        <svg class="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.384-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"></path></svg>
+                    </div>
+                    <div class="glass-panel p-5 rounded-2xl rounded-tl-none max-w-[90%]">
+                        <p class="text-sm text-slate-300 leading-relaxed">
+                            Systems initialized. I am Cortexa. I combine quantitative models with historical context to generate trading signals.
+                            <br><br>
+                            Ask me about a ticker (e.g., <span class="text-cyan-400 font-mono">AAPL</span>, <span class="text-cyan-400 font-mono">NVDA</span>) to begin analysis.
+                        </p>
+                    </div>
+                </div>
+
+            </div>
+            
+            <!-- Loading Indicator -->
+            <div id="loading-indicator" class="hidden flex gap-4 mt-6 animate-pulse">
+                <div class="w-8 h-8 rounded-lg bg-slate-800/50 flex items-center justify-center">🤖</div>
+                <div class="flex items-center space-x-1.5 h-8">
+                    <div class="w-1.5 h-1.5 bg-cyan-500 rounded-full animate-bounce"></div>
+                    <div class="w-1.5 h-1.5 bg-cyan-500 rounded-full animate-bounce" style="animation-delay: 0.1s"></div>
+                    <div class="w-1.5 h-1.5 bg-cyan-500 rounded-full animate-bounce" style="animation-delay: 0.2s"></div>
+                </div>
             </div>
 
-            <!-- Recent Signals -->
-            <div class="bg-white/90 border border-neutral-200/60 rounded-2xl p-5 shadow-lg">
-              <h3 class="text-xs font-semibold text-neutral-500 tracking-widest uppercase mb-4">Recent Signals</h3>
-              <div class="space-y-3">
-                <div class="flex items-center justify-between py-2 border-b border-neutral-100">
-                  <div>
-                    <div class="font-mono text-sm font-semibold text-neutral-900">NVDA</div>
-                    <div class="text-xs text-neutral-500">2 hours ago</div>
-                  </div>
-                  <div class="text-emerald-600 font-semibold text-sm">BUY</div>
-                </div>
-                <div class="flex items-center justify-between py-2 border-b border-neutral-100">
-                  <div>
-                    <div class="font-mono text-sm font-semibold text-neutral-900">TSLA</div>
-                    <div class="text-xs text-neutral-500">4 hours ago</div>
-                  </div>
-                  <div class="text-rose-600 font-semibold text-sm">SELL</div>
-                </div>
-                <div class="flex items-center justify-between py-2">
-                  <div>
-                    <div class="font-mono text-sm font-semibold text-neutral-900">AAPL</div>
-                    <div class="text-xs text-neutral-500">6 hours ago</div>
-                  </div>
-                  <div class="text-emerald-600 font-semibold text-sm">BUY</div>
-                </div>
-              </div>
-            </div>
-
-          </div>
         </div>
+    </main>
 
-      </div>
-    </div>
-  </main>
+    <!-- Signal Card Template (Hidden) -->
+    <template id="signal-card-template">
+        <div class="mt-6 w-full animate-fade-in-up">
+            <div class="glass-panel rounded-xl overflow-hidden glow-border">
+                
+                <!-- Header -->
+                <div class="px-6 py-3 border-b border-white/5 bg-white/5 flex justify-between items-center">
+                    <div class="flex items-center gap-3">
+                        <span class="signal-ticker font-mono text-xl font-bold text-white tracking-widest">---</span>
+                        <span class="signal-regime px-2 py-0.5 rounded text-[10px] font-mono uppercase bg-slate-700/50 text-slate-300 border border-white/5">Regime Scan</span>
+                    </div>
+                    <div class="font-mono text-xs text-slate-400">SCORE: <span class="signal-score text-cyan-400 font-bold">--%</span></div>
+                </div>
 
-  <!-- Composer -->
-  <div class="fixed bottom-0 left-0 w-full bg-white/80 backdrop-blur-2xl border-t border-neutral-200/50 p-6">
-    <div class="max-w-7xl mx-auto">
-      <div class="grid grid-cols-12 gap-6">
-        <div class="col-span-12 lg:col-span-8">
-          <form id="query-form" class="relative">
-            <textarea id="user-query" rows="1" placeholder="Ask about stocks, market trends, or specific signals..."
-              class="w-full bg-white border-2 border-neutral-200 text-neutral-900 text-[15px] rounded-[24px] pl-6 pr-28 py-5 focus:outline-none focus:border-neutral-400 placeholder-neutral-400 resize-none leading-6 transition-all duration-300 shadow-lg shadow-neutral-900/5"
-              autocomplete="off"></textarea>
-            <button type="submit" id="send-btn"
-              class="send-btn absolute right-2 top-1/2 -translate-y-1/2 bg-neutral-900 hover:bg-neutral-800 text-white font-medium text-sm px-8 py-3.5 rounded-full disabled:opacity-40 disabled:cursor-not-allowed shadow-lg">
-              Send
-            </button>
-          </form>
-        </div>
-      </div>
-    </div>
-  </div>
+                <div class="p-6">
+                    <!-- Big Decision -->
+                    <div class="text-center mb-8">
+                        <div class="signal-decision text-4xl font-bold tracking-tight drop-shadow-2xl">---</div>
+                    </div>
 
-  <script>
-    const form = document.getElementById('query-form');
-    const input = document.getElementById('user-query');
-    const chat = document.getElementById('chat-container');
-    const sendBtn = document.getElementById('send-btn');
-    const tpl = document.getElementById('signal-card-template');
-    const apiBadge = document.getElementById('api-status');
+                    <!-- Trade Plan Grid -->
+                    <div class="grid grid-cols-3 gap-3 mb-8 font-mono text-xs">
+                        <div class="bg-slate-800/30 rounded p-2 text-center border border-red-500/20">
+                            <div class="text-red-400/70 mb-1">STOP</div>
+                            <div class="signal-stop text-slate-200 font-bold">---</div>
+                        </div>
+                        <div class="bg-slate-800/30 rounded p-2 text-center border border-slate-500/20">
+                            <div class="text-slate-400/70 mb-1">PRICE</div>
+                            <div class="signal-price text-slate-200 font-bold">---</div>
+                        </div>
+                        <div class="bg-slate-800/30 rounded p-2 text-center border border-success/20">
+                            <div class="text-emerald-400/70 mb-1">TARGET</div>
+                            <div class="signal-target text-slate-200 font-bold">---</div>
+                        </div>
+                    </div>
 
-    const API_BASE_URL = "http://127.0.0.1:8000";
+                    <!-- Probability Bars -->
+                    <div class="space-y-4">
+                        <!-- ML -->
+                        <div class="group">
+                            <div class="flex justify-between text-[10px] uppercase tracking-wider text-slate-500 mb-1">
+                                <span>Quant Model</span>
+                                <span class="signal-ml-val group-hover:text-blue-400 transition-colors">--%</span>
+                            </div>
+                            <div class="h-1 w-full bg-slate-800 rounded-full overflow-hidden">
+                                <div class="signal-ml-bar h-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)] transition-all duration-1000 ease-out" style="width: 0%"></div>
+                            </div>
+                        </div>
 
-    const TICKER_LOOKUP = {
-      "AAPL": "AAPL", "APPLE": "AAPL", "APPL": "AAPL", "$AAPL": "AAPL", "$APPLE": "AAPL",
-      "MSFT": "MSFT", "MICROSOFT": "MSFT", "$MSFT": "MSFT",
-      "GOOGL": "GOOGL", "GOOGLE": "GOOGL", "ALPHABET": "GOOGL", "$GOOGL": "GOOGL",
-      "NVDA": "NVDA", "NVIDIA": "NVDA", "$NVDA": "NVDA",
-      "TSLA": "TSLA", "TESLA": "TSLA", "$TSLA": "TSLA",
-      "GSPC": "GSPC", "^GSPC": "GSPC", "S&P": "GSPC", "S&P500": "GSPC", "S&P 500": "GSPC", "SP500": "GSPC", "THE MARKET": "GSPC"
-    };
+                        <!-- RAG -->
+                        <div class="group">
+                            <div class="flex justify-between text-[10px] uppercase tracking-wider text-slate-500 mb-1">
+                                <span>Historical Context</span>
+                                <span class="signal-rag-val group-hover:text-purple-400 transition-colors">--%</span>
+                            </div>
+                            <div class="h-1 w-full bg-slate-800 rounded-full overflow-hidden">
+                                <div class="signal-rag-bar h-full bg-purple-500 shadow-[0_0_8px_rgba(168,85,247,0.5)] transition-all duration-1000 ease-out" style="width: 0%"></div>
+                            </div>
+                        </div>
+                    </div>
 
-    // Quick action buttons
-    document.querySelectorAll('.quick-action').forEach(btn => {
-      btn.addEventListener('click', () => {
-        input.value = btn.textContent.trim();
-        form.requestSubmit();
-      });
-    });
+                    <!-- Footer Context -->
+                    <div class="mt-6 pt-4 border-t border-white/5 flex gap-2 items-start">
+                        <svg class="w-3 h-3 text-slate-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        <p class="signal-context text-xs text-slate-500 leading-snug font-mono">Loading context...</p>
+                    </div>
 
-    function scrollToBottom() { 
-      setTimeout(() => {
-        const chatContainer = document.getElementById('chat-container');
-        chatContainer.scrollIntoView({ behavior: 'smooth', block: 'end' });
-      }, 100);
-    }
-    
-    function sanitizeHTML(str = "") { 
-      return str.replace(/[&<>"']/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s])); 
-    }
-    
-    function setApiBadge(text) {
-      apiBadge.textContent = text;
-    }
-
-    function addMessage(html, isUser=false) {
-      const wrap = document.createElement('div');
-      wrap.className = `flex animate-slide-up ${isUser ? 'justify-end' : 'justify-start'}`;
-      
-      const bubble = document.createElement('div');
-      if (isUser) {
-        bubble.className = 'max-w-2xl';
-        bubble.innerHTML = `
-          <div class="message-bubble inline-block bg-neutral-900 text-white px-6 py-4 rounded-[24px] shadow-xl shadow-neutral-900/20">
-            <p class="text-[15px] leading-relaxed">${html}</p>
-          </div>`;
-      } else {
-        bubble.className = 'max-w-2xl';
-        bubble.innerHTML = `
-          <div class="message-bubble inline-block bg-white/90 border border-neutral-200/60 shadow-lg shadow-neutral-900/5 px-6 py-4 rounded-[24px]">
-            <div class="text-[15px] leading-relaxed text-neutral-700">${html}</div>
-          </div>`;
-      }
-      
-      wrap.appendChild(bubble);
-      chat.appendChild(wrap);
-      scrollToBottom();
-    }
-
-    function addLoading() {
-      const id = 'loading-' + Date.now();
-      const wrap = document.createElement('div');
-      wrap.id = id;
-      wrap.className = 'flex justify-start animate-fade-in';
-      wrap.innerHTML = `
-        <div class="max-w-2xl">
-          <div class="message-bubble inline-block bg-white/90 border border-neutral-200/60 shadow-lg shadow-neutral-900/5 px-6 py-4 rounded-[24px]">
-            <div class="flex items-center gap-2">
-              <div class="w-2 h-2 bg-neutral-400 rounded-full animate-bounce"></div>
-              <div class="w-2 h-2 bg-neutral-400 rounded-full animate-bounce" style="animation-delay:.15s"></div>
-              <div class="w-2 h-2 bg-neutral-400 rounded-full animate-bounce" style="animation-delay:.3s"></div>
+                </div>
             </div>
-          </div>
-        </div>`;
-      chat.appendChild(wrap);
-      scrollToBottom();
-      return id;
-    }
+        </div>
+    </template>
 
-    function detectTicker(query) {
-      const cleaned = query.replace(/[.,!?():]/g, ' ').toUpperCase();
-      for (const alias in TICKER_LOOKUP) {
-        const pattern = alias.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
-        const re = new RegExp(`(^|\\s|\\$)${pattern}(\\s|$)`);
-        if (re.test(cleaned)) return TICKER_LOOKUP[alias];
-      }
-      return null;
-    }
+    <!-- Fixed Input Area -->
+    <div class="fixed bottom-0 w-full bg-gradient-to-t from-[#030712] via-[#030712] to-transparent pt-10 pb-6 z-40">
+        <div class="max-w-3xl mx-auto px-4">
+            <form id="query-form" class="relative">
+                <div class="absolute inset-0 bg-gradient-to-r from-cyan-500/20 to-purple-500/20 rounded-full blur-xl opacity-0 transition-opacity duration-500 group-hover:opacity-100"></div>
+                <input 
+                    type="text" 
+                    id="user-query" 
+                    class="w-full bg-[#0F172A]/90 border border-white/10 text-slate-200 text-sm rounded-full pl-6 pr-14 py-4 focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/50 focus:bg-[#162032] transition-all placeholder-slate-600 shadow-lg backdrop-blur-md font-mono"
+                    placeholder="Enter ticker command..."
+                    autocomplete="off"
+                >
+                <button type="submit" class="absolute right-2 top-2 p-2 bg-cyan-600 hover:bg-cyan-500 text-white rounded-full transition-all shadow-lg group">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 transform group-hover:translate-x-0.5 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                    </svg>
+                </button>
+            </form>
+        </div>
+    </div>
 
-    function showSignal(ticker, data) {
-      if (!data || data.signal === "No Data") {
-        addMessage(`<span class="text-neutral-600">${sanitizeHTML(data?.detail || 'No feature data found.')}</span>`);
-        return;
-      }
-      
-      const card = tpl.cloneNode(true);
-      card.removeAttribute('id');
-      card.classList.remove('hidden');
-      card.classList.add('animate-slide-up');
+    <script>
+        const API_BASE_URL = "http://127.0.0.1:8000";
+        const TICKER_LOOKUP = {
+            "AAPL": "AAPL", "APPLE": "AAPL", "MSFT": "MSFT", "MICROSOFT": "MSFT",
+            "GOOGL": "GOOGL", "GOOGLE": "GOOGL", "NVDA": "NVDA", "TSLA": "TSLA",
+            "AMD": "AMD", "META": "META", "AMZN": "AMZN"
+        };
 
-      card.querySelector('[data-ticker]').textContent = (ticker || '').toUpperCase();
-      const txt = card.querySelector('[data-signal-text]');
-      txt.textContent = data.signal;
+        const form = document.getElementById('query-form');
+        const input = document.getElementById('user-query');
+        const chat = document.getElementById('chat-container');
+        const loader = document.getElementById('loading-indicator');
+        const tpl = document.getElementById('signal-card-template');
 
-      if ((data.signal || '').includes("BUY")) {
-        txt.classList.add('text-emerald-600');
-      } else {
-        txt.classList.add('text-rose-600');
-      }
+        function detectTicker(q) {
+            const clean = q.toUpperCase();
+            for (const k in TICKER_LOOKUP) {
+                if (new RegExp(`\\b${k}\\b`, 'i').test(clean)) return TICKER_LOOKUP[k];
+            }
+            return null;
+        }
 
-      card.querySelector('[data-ml-prob]').textContent = data.ml_probability || '--%';
-      card.querySelector('[data-rag-prob]').textContent = data.rag_probability || '--%';
+        function addMessage(html, isUser = false) {
+            const div = document.createElement('div');
+            div.className = `flex gap-4 animate-fade-in-up ${isUser ? 'justify-end' : ''}`;
+            
+            const bubbleClass = isUser ? 'bg-cyan-950/50 border-cyan-500/30 text-cyan-100' : 'glass-panel text-slate-300';
+            
+            div.innerHTML = isUser ? 
+                `<div class="${bubbleClass} border p-4 rounded-2xl rounded-tr-none max-w-[85%] text-sm font-medium">${html}</div>` :
+                `<div class="w-8 h-8 rounded-lg bg-slate-800 border border-white/10 flex items-center justify-center flex-shrink-0">🤖</div>
+                 <div class="${bubbleClass} p-5 rounded-2xl rounded-tl-none max-w-[90%] text-sm leading-relaxed shadow-lg">${html}</div>`;
+            
+            chat.appendChild(div);
+            window.scrollTo(0, document.body.scrollHeight);
+        }
 
-      const regime = data?.filter_used?.regime ?? '?';
-      card.querySelector('[data-signal-regime]').textContent = `Regime ${regime} · Score ${data.combined_score || '--%'}`;
+        function renderSignal(ticker, data) {
+            const clone = tpl.content.cloneNode(true);
+            const root = clone.querySelector('div');
+            
+            // 1. Header
+            root.querySelector('.signal-ticker').textContent = ticker;
+            root.querySelector('.signal-score').textContent = data.combined_score;
+            
+            // 2. Decision Color
+            const decEl = root.querySelector('.signal-decision');
+            decEl.textContent = data.signal;
+            if (data.signal.includes("BUY")) decEl.classList.add("text-emerald-400", "glow-text");
+            else if (data.signal.includes("SELL")) decEl.classList.add("text-rose-400", "glow-text");
+            else decEl.classList.add("text-amber-400"); // Hold
 
-      const ctxCount = Number.isFinite(data.rag_contexts_found) ? data.rag_contexts_found : 0;
-      card.querySelector('[data-rag-context]').textContent = `${ctxCount} similar historical contexts identified in Regime ${regime}`;
+            // 3. Risk Grid
+            if (data.risk) {
+                root.querySelector('.signal-stop').textContent = data.risk.stop_loss;
+                root.querySelector('.signal-price').textContent = data.risk.current_price;
+                root.querySelector('.signal-target').textContent = data.risk.take_profit;
+            }
 
-      chat.appendChild(card);
-      scrollToBottom();
-    }
+            // 4. Context
+            const reg = data.filter_used?.regime || '?';
+            root.querySelector('.signal-regime').textContent = `REGIME ${reg}`;
+            root.querySelector('.signal-context').textContent = `${data.rag_contexts_found} historical matches found in Regime ${reg}.`;
+            
+            // 5. Bars
+            root.querySelector('.signal-ml-val').textContent = data.ml_probability;
+            root.querySelector('.signal-rag-val').textContent = data.rag_probability;
+            
+            // Append first, then animate width
+            chat.appendChild(clone);
+            
+            // Trigger CSS transition
+            setTimeout(() => {
+                const bars = chat.querySelectorAll('.signal-ml-bar, .signal-rag-bar');
+                // Only animate the last added ones
+                const lastMl = bars[bars.length-2];
+                const lastRag = bars[bars.length-1];
+                lastMl.style.width = `${parseFloat(data.ml_probability)}%`;
+                lastRag.style.width = `${parseFloat(data.rag_probability)}%`;
+            }, 50);
 
-    function renderSources(sources = []) {
-      if (!sources || !sources.length) return '';
-      const items = sources.slice(0,5).map(s => {
-        const title = sanitizeHTML(s.title || 'Source');
-        const link = s.link || '#';
-        const dom = sanitizeHTML((s.source || '').toString());
-        const date = sanitizeHTML((s.date || '').toString());
-        return `
-          <div class="source-link py-2">
-            <a href="${link}" target="_blank" rel="noopener noreferrer" class="text-neutral-900 hover:text-neutral-600 font-medium transition-colors block">${title}</a>
-            <div class="text-neutral-500 text-xs mt-1">${dom}${date ? ' · ' + date : ''}</div>
-          </div>`;
-      }).join('');
-      return `
-        <div class="mt-6 pt-6 border-t border-neutral-200/60">
-          <div class="text-neutral-500 text-xs mb-3 tracking-wide uppercase">Sources</div>
-          <div class="space-y-1">${items}</div>
-        </div>`;
-    }
+            window.scrollTo(0, document.body.scrollHeight);
+        }
 
-    function autoGrow(el) {
-      el.style.height = 'auto';
-      el.style.height = (el.scrollHeight) + 'px';
-    }
-    
-    input.addEventListener('input', () => autoGrow(input));
-    input.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        form.requestSubmit();
-      }
-    });
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const q = input.value.trim();
+            if (!q) return;
+            
+            addMessage(q, true);
+            input.value = '';
+            input.blur();
+            loader.classList.remove('hidden');
 
-    form.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const query = input.value.trim();
-      if (!query) return;
+            try {
+                const ticker = detectTicker(q);
+                
+                // Parallel Request
+                const tasks = [
+                    fetch(`${API_BASE_URL}/query`, {
+                        method: 'POST', 
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({ text: q })
+                    }).then(r => r.json())
+                ];
 
-      addMessage(sanitizeHTML(query), true);
-      input.value = '';
-      autoGrow(input);
-      input.disabled = true;
-      sendBtn.disabled = true;
-      setApiBadge('PROCESSING');
+                if (ticker) {
+                    tasks.push(fetch(`${API_BASE_URL}/predict/${ticker}`).then(r => r.json()).catch(() => null));
+                }
 
-      const loadingId = addLoading();
-      const detectedTicker = detectTicker(query);
+                const [rag, signal] = await Promise.all(tasks);
+                loader.classList.add('hidden');
 
-      const signalPromise = detectedTicker
-        ? fetch(`${API_BASE_URL}/predict/${encodeURIComponent(detectedTicker)}`)
-            .then(async res => res.ok ? res.json() : Promise.reject(await res.json()))
-            .catch(err => ({ signal: "Error", detail: err?.detail || 'Signal fetch failed' }))
-        : Promise.resolve(null);
+                // Render Text
+                if (rag.answer) {
+                    let text = rag.answer
+                        .replace(/\*\*(.*?)\*\*/g, '<span class="text-cyan-300 font-semibold">$1</span>')
+                        .replace(/- /g, '• ')
+                        .replace(/\n/g, '<br>');
+                    
+                    if (rag.sources && rag.sources.length) {
+                        text += `<div class="mt-4 pt-3 border-t border-white/10 grid gap-1">`;
+                        rag.sources.forEach(s => {
+                            text += `<a href="${s.link}" target="_blank" class="block text-xs text-slate-500 hover:text-cyan-400 truncate transition-colors">↗ ${s.title}</a>`;
+                        });
+                        text += `</div>`;
+                    }
+                    addMessage(text);
+                }
 
-      try {
-        const ragRes = await fetch(`${API_BASE_URL}/query`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text: query })
+                // Render Signal
+                if (signal && signal.signal !== "No Data") {
+                    renderSignal(ticker, signal);
+                } else if (signal && signal.signal === "No Data") {
+                    addMessage(`Could not generate signal for ${ticker}: ${signal.detail}`);
+                }
+
+            } catch (err) {
+                loader.classList.add('hidden');
+                addMessage(`<span class="text-rose-400">System Error: ${err.message}</span>`);
+            }
         });
-
-        const ragData = await ragRes.json().catch(() => ({}));
-        document.getElementById(loadingId)?.remove();
-
-        if (ragRes.ok && ragData && ragData.answer) {
-          const formatted = ragData.answer
-            .replace(/\*\*(.*?)\*\*/g, '<strong class="font-semibold text-neutral-900">$1</strong>')
-            .replace(/\n/g, '<br/>');
-          const sourcesHtml = renderSources(ragData.sources);
-          addMessage(`${formatted}${sourcesHtml}`);
-          setApiBadge('');
-        } else {
-          const msg = ragData?.detail || ragData?.answer || 'Failed to reach Cortexa core.';
-          addMessage(`<span class="text-neutral-600">${sanitizeHTML(msg)}</span>`);
-          setApiBadge('');
-        }
-
-        const sig = await signalPromise;
-        if (sig) {
-          if (sig.signal === 'Error') {
-            addMessage(`<span class="text-neutral-600">Quantitative Signal: ${sanitizeHTML(sig.detail || 'Error')}</span>`);
-          } else {
-            showSignal(detectedTicker, sig);
-          }
-        }
-      } catch (err) {
-        document.getElementById(loadingId)?.remove();
-        addMessage(`<span class="text-rose-600">Connection Error: Is server.py running?</span>`);
-        setApiBadge('OFFLINE');
-        console.error(err);
-      } finally {
-        input.disabled = false;
-        sendBtn.disabled = false;
-        input.focus();
-      }
-    });
-  </script>
+    </script>
 </body>
 </html>
