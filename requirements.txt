@@ -1,34 +1,22 @@
-# Core Libraries
+# Core
+fastapi
+uvicorn[standard]
+python-dotenv
+pydantic
+
+# Data
+yfinance
 pandas
 numpy
-
-# Data Ingestion
-yfinance
-fredapi
 feedparser
-beautifulsoup4 # For cleaning HTML/XML from RSS
+beautifulsoup4
 
-# RAG & Vector Database
-chromadb
-sentence-transformers # For Hugging Face embedding models
-llama-index # High-level RAG orchestration
-ollama # To connect to local LLMs (Gemma, Llama 3.1)
-
-# Machine Learning
-scikit-learn
-lightgbm
-xgboost
-
-# Dashboard & App
-streamlit
-pyyaml # For loading the config.yaml file
-fastapi
-uvicorn
-google-generativeai
-pandas-ta-openbb
-importlib-metadata
-qdrant-client
-faiss-cpu
+# ML & Embeddings
 sentence-transformers
-hmmlearn
-prefect
+scikit-learn
+
+# Vector DB
+qdrant-client
+
+# AI
+google-generativeai
