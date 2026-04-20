@@ -238,7 +238,7 @@ def run_ingestion(tickers: list[str] = None):
 # ==========================================
 def search_similar_news(query: str, ticker: str, top_k: int = 5) -> list[dict]:
     """Search Qdrant for historically similar news for a ticker."""
-    vector = embedder.encode([query])[0].tolist()
+    vvector = embedder.encode([query])[0].tolist()
 
     results = qdrant.query_points(
         collection_name=COLLECTION_NAME,
