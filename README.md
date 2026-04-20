@@ -3,7 +3,7 @@
 An AI-powered investment research tool for NSE/BSE listed companies. Ask a question about any major Indian stock and get a structured analysis combining live news, historical precedents, fundamental data, and an LLM-generated verdict with confidence score.
 
 **Live demo:** [cortexa-amber.vercel.app](https://cortexa-amber.vercel.app)  
-**API:** [cortexa-747288447158.asia-south1.run.app](https://cortexa-747288447158.asia-south1.run.app/docs)
+**API:** [cortexa-747288447158.asia-south1.run.app/docs](https://cortexa-747288447158.asia-south1.run.app/docs)
 
 ---
 
@@ -30,6 +30,7 @@ The output covers current situation, historical precedent, fundamental analysis,
 - **Market Data:** yfinance (NSE/BSE via `.NS` suffix)
 - **News:** Google News RSS via feedparser
 - **Frontend:** Vanilla HTML/CSS/JS — deployed on Vercel
+- **Scheduler:** Google Cloud Scheduler — daily ingestion at 2:00 AM IST
 
 ---
 
@@ -96,7 +97,7 @@ QDRANT_API_KEY=your_qdrant_api_key
 
 ### 4. Run ingestion
 
-This fetches news for all supported companies, calculates historical stock reactions, and stores everything in Qdrant. Run once to populate the database, then periodically to keep it fresh.
+Fetches news for all supported companies, calculates historical stock reactions, and stores everything in Qdrant.
 
 ```bash
 cd backend
@@ -148,6 +149,10 @@ Takes a natural language query and returns a full investment analysis.
 }
 ```
 
+### POST /ingest
+
+Triggers a full ingestion run — fetches fresh news for all companies and updates Qdrant. This endpoint is called automatically every night at 2:00 AM IST by Cloud Scheduler.
+
 ### GET /tickers
 
 Returns all supported companies and their tickers.
@@ -169,6 +174,18 @@ When a user asks about a company, the current query is embedded and searched aga
 
 ---
 
+## Automated Daily Ingestion
+
+The Qdrant vector database is refreshed automatically every night at **2:00 AM IST** via a Google Cloud Scheduler job (`cortexa-daily-ingestion`) that hits the `/ingest` endpoint on the Cloud Run backend. This keeps news data and stock price reactions current without any manual intervention.
+
+```
+Schedule:  0 2 * * *  (Asia/Calcutta)
+Target:    POST https://cortexa-747288447158.asia-south1.run.app/ingest
+Region:    us-central1
+```
+
+---
+
 ## Deployment
 
 ### Backend — Google Cloud Run
@@ -185,22 +202,27 @@ Set environment variables (`GEMINI_API_KEY`, `QDRANT_URL`, `QDRANT_API_KEY`) in 
 
 ### Frontend — Vercel
 
-The `frontend/` directory is deployed to Vercel. `API_BASE` in `index.html` points to the Cloud Run backend URL. To redeploy after changes:
+The `frontend/` directory is deployed to Vercel. `API_BASE` in `index.html` points to the Cloud Run backend URL. Connect the GitHub repo to Vercel for automatic deploys on push.
+
+### Scheduler — Google Cloud Scheduler
 
 ```bash
-vercel --prod
+gcloud scheduler jobs create http cortexa-daily-ingestion \
+  --schedule="0 2 * * *" \
+  --uri="https://cortexa-747288447158.asia-south1.run.app/ingest" \
+  --http-method=POST \
+  --time-zone="Asia/Calcutta" \
+  --location=us-central1
 ```
-
-Or connect the GitHub repo to Vercel for automatic deploys on push.
 
 ---
 
 ## Limitations
 
-- Analysis quality depends on available news and historical data in Qdrant. Newly added companies may have limited historical context until ingestion runs over time.
+- Analysis quality depends on available news and historical data in Qdrant. Historical price reactions are only available for articles old enough for 1d/3d/7d prices to have settled.
 - yfinance data can occasionally be delayed or incomplete for certain NSE tickers.
 - This is a demo deployment — no rate limiting or auth is applied to the public API.
-- This tool is for research and educational purposes only. Not financial advice.
+- For research and educational purposes only. Not financial advice.
 
 ---
 
