@@ -10,7 +10,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 import uvicorn
-
+import asyncio
 from config import TICKER_MAP, TICKER_NAMES, INGEST_SECRET
 from ingestion import search_similar_news, fetch_news_for_ticker, get_stock_reaction, store_articles, run_ingestion
 from analyzer import fetch_latest_news, fetch_fundamentals, generate_analysis
@@ -28,8 +28,12 @@ def run_ingestion_background():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    thread = threading.Thread(target=run_ingestion_background, daemon=True)
-    thread.start()
+    # Wait 30s after startup before ingesting — lets port bind first
+    async def delayed_ingest():
+        await asyncio.sleep(30)
+        thread = threading.Thread(target=run_ingestion_background, daemon=True)
+        thread.start()
+    asyncio.create_task(delayed_ingest())
     yield
 
 # ==========================================

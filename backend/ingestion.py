@@ -23,7 +23,7 @@ from config import (
 # INIT
 # ==========================================
 print("🔧 Initializing ingestion pipeline...")
-embedder = SentenceTransformer("all-MiniLM-L6-v2")
+embedder = SentenceTransformer("paraphrase-MiniLM-L3-v2")
 qdrant = QdrantClient(url=QDRANT_URL, api_key=QDRANT_API_KEY)
 
 # ==========================================
