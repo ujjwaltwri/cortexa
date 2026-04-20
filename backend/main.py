@@ -89,9 +89,10 @@ def run_ingestion_endpoint(x_ingest_secret: str = Header(default=None)):
     if x_ingest_secret != INGEST_SECRET:
         raise HTTPException(status_code=401, detail="Unauthorized")
     try:
-        thread = threading.Thread(target=run_ingestion, daemon=True)
-        thread.start()
-        return {"status": "ok", "message": "Ingestion started in background"}
+        print("🔄 Manual ingestion triggered via endpoint...")
+        # Run it directly, NO THREADING!
+        run_ingestion() 
+        return {"status": "ok", "message": "Ingestion completed successfully"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
