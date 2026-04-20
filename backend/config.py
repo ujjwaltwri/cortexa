@@ -2,15 +2,12 @@
 
 import os
 from dotenv import load_dotenv
-
 load_dotenv()
 
-# ==========================================
-# API KEYS
-# ==========================================
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-QDRANT_URL = os.getenv("QDRANT_URL", "https://77eca60a-a10a-44af-b9e1-f8975bf48cc8.us-east-1-1.aws.cloud.qdrant.io:6333")
+QDRANT_URL = os.getenv("QDRANT_URL")
 QDRANT_API_KEY = os.getenv("QDRANT_API_KEY")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+INGEST_SECRET = os.getenv("INGEST_SECRET", "change-me")
 
 # ==========================================
 # QDRANT SETTINGS
@@ -62,18 +59,33 @@ TICKER_MAP = {
     "ntpc": "NTPC.NS",
     "power grid": "POWERGRID.NS",
 
-    # Consumer
+    # Consumer & Auto
     "hindustan unilever": "HINDUNILVR.NS",
     "hul": "HINDUNILVR.NS",
     "itc": "ITC.NS",
     "asian paints": "ASIANPAINT.NS",
     "maruti": "MARUTI.NS",
     "maruti suzuki": "MARUTI.NS",
-    "tata motors": "TATAMOTORS.NS",
-    "zomato": "ZOMATO.NS",
+
+    # Tata Motors demerged Oct 2025 into two listed entities:
+    # TMPV.NS = Tata Motors Passenger Vehicles (JLR, EVs, passenger cars)
+    # TMCV.NS = Tata Motors Commercial Vehicles (trucks, buses) — renamed "Tata Motors Ltd"
+    "tata motors": "TMPV.NS",
+    "tata motors passenger": "TMPV.NS",
+    "tmpv": "TMPV.NS",
+    "tata motors commercial": "TMCV.NS",
+    "tmcv": "TMCV.NS",
+    "tata cv": "TMCV.NS",
+
+    # Zomato rebranded to Eternal Limited (Oct 2025)
+    "zomato": "ETERNAL.NS",
+    "eternal": "ETERNAL.NS",
+    "eternal limited": "ETERNAL.NS",
+
     "paytm": "PAYTM.NS",
+    "one97": "PAYTM.NS",
     "nykaa": "NYKAA.NS",
-    "fsi": "NYKAA.NS",
+    "fsn": "NYKAA.NS",
 
     # Pharma
     "sun pharma": "SUNPHARMA.NS",
@@ -90,8 +102,11 @@ TICKER_MAP = {
     "market": "^NSEI",
 }
 
-# All supported tickers for ingestion
-ALL_TICKERS = list(set(TICKER_MAP.values()))
+# All supported tickers for ingestion (excludes indices)
+ALL_TICKERS = list(set(
+    v for v in TICKER_MAP.values()
+    if not v.startswith("^")
+))
 
 # Company display names
 TICKER_NAMES = {
@@ -116,8 +131,9 @@ TICKER_NAMES = {
     "ITC.NS": "ITC",
     "ASIANPAINT.NS": "Asian Paints",
     "MARUTI.NS": "Maruti Suzuki",
-    "TATAMOTORS.NS": "Tata Motors",
-    "ZOMATO.NS": "Zomato",
+    "TMPV.NS": "Tata Motors (Passenger Vehicles)",   # demerged Oct 2025
+    "TMCV.NS": "Tata Motors (Commercial Vehicles)",  # demerged Oct 2025
+    "ETERNAL.NS": "Zomato (Eternal Ltd)",            # rebranded Oct 2025
     "PAYTM.NS": "Paytm",
     "NYKAA.NS": "Nykaa",
     "SUNPHARMA.NS": "Sun Pharma",

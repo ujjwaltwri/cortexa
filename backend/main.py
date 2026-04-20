@@ -1,18 +1,41 @@
 # FILE: backend/main.py
 
 import re
-from fastapi import FastAPI, HTTPException
+import threading
+from pathlib import Path
+from contextlib import asynccontextmanager
+from fastapi import FastAPI, HTTPException, Header
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 import uvicorn
 
-from config import TICKER_MAP, TICKER_NAMES
-from ingestion import search_similar_news, fetch_news_for_ticker, get_stock_reaction, store_articles
+from config import TICKER_MAP, TICKER_NAMES, INGEST_SECRET
+from ingestion import search_similar_news, fetch_news_for_ticker, get_stock_reaction, store_articles, run_ingestion
 from analyzer import fetch_latest_news, fetch_fundamentals, generate_analysis
 
-app = FastAPI(title="Cortexa India API")
+# ==========================================
+# STARTUP INGESTION
+# ==========================================
+def run_ingestion_background():
+    try:
+        print("🔄 Running startup ingestion...")
+        run_ingestion()
+        print("✅ Startup ingestion complete")
+    except Exception as e:
+        print(f"⚠️ Startup ingestion failed: {e}")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    thread = threading.Thread(target=run_ingestion_background, daemon=True)
+    thread.start()
+    yield
+
+# ==========================================
+# APP
+# ==========================================
+app = FastAPI(title="Cortexa India API", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -31,19 +54,13 @@ class QueryRequest(BaseModel):
 # TICKER DETECTION
 # ==========================================
 def detect_ticker(text: str) -> tuple[str, str] | tuple[None, None]:
-    """Extract company/ticker from user query."""
     text_lower = text.lower()
-
-    # Direct match
     for key, ticker in TICKER_MAP.items():
         if re.search(r'\b' + re.escape(key) + r'\b', text_lower):
             return ticker, TICKER_NAMES.get(ticker, ticker)
-
-    # Partial match fallback
     for key, ticker in TICKER_MAP.items():
         if key in text_lower:
             return ticker, TICKER_NAMES.get(ticker, ticker)
-
     return None, None
 
 # ==========================================
@@ -51,7 +68,7 @@ def detect_ticker(text: str) -> tuple[str, str] | tuple[None, None]:
 # ==========================================
 @app.get("/")
 def root():
-    return {"status": "Cortexa India API is running", "version": "2.0"}
+    return {"status": "Cortexa API is running"}
 
 @app.get("/health")
 def health():
@@ -59,7 +76,6 @@ def health():
 
 @app.get("/tickers")
 def get_tickers():
-    """Return all supported companies."""
     return {
         "companies": [
             {"ticker": ticker, "name": name}
@@ -68,18 +84,23 @@ def get_tickers():
         ]
     }
 
+@app.post("/ingest")
+def run_ingestion_endpoint(x_ingest_secret: str = Header(default=None)):
+    if x_ingest_secret != INGEST_SECRET:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    try:
+        thread = threading.Thread(target=run_ingestion, daemon=True)
+        thread.start()
+        return {"status": "ok", "message": "Ingestion started in background"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.post("/analyze")
 def analyze(request: QueryRequest):
-    """
-    Main endpoint — takes user query, detects company,
-    fetches news + fundamentals + historical context,
-    returns Gemini analysis.
-    """
     query = request.query.strip()
     if not query:
         raise HTTPException(status_code=400, detail="Query cannot be empty")
 
-    # 1. Detect ticker
     ticker, company = detect_ticker(query)
     if not ticker:
         return {
@@ -93,16 +114,13 @@ def analyze(request: QueryRequest):
 
     print(f"📊 Analyzing {company} ({ticker}) for query: '{query}'")
 
-    # 2. Fetch latest live news
     latest_news = fetch_latest_news(ticker, company)
     print(f"  📰 Got {len(latest_news)} latest news articles")
 
-    # 3. Search historical similar news from Qdrant
     search_query = f"{company} {query}"
     similar_past = search_similar_news(search_query, ticker, top_k=5)
     print(f"  🔍 Found {len(similar_past)} similar historical articles")
 
-    # 4. If no historical data exists for this ticker, ingest live news on the fly
     if not similar_past:
         print(f"  ⚡ No historical data for {ticker}, ingesting now...")
         try:
@@ -114,11 +132,9 @@ def analyze(request: QueryRequest):
         except Exception as e:
             print(f"  ⚠️ On-the-fly ingestion failed: {e}")
 
-    # 5. Fetch fundamentals
     fundamentals = fetch_fundamentals(ticker)
     print(f"  💹 Got fundamentals: price=₹{fundamentals.get('current_price', 'N/A')}")
 
-    # 6. Generate Gemini analysis
     result = generate_analysis(
         user_query=query,
         ticker=ticker,

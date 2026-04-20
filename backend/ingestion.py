@@ -14,7 +14,6 @@ from qdrant_client.models import (
 )
 import uuid
 import time
-import re
 from config import (
     QDRANT_URL, QDRANT_API_KEY, COLLECTION_NAME,
     VECTOR_SIZE, ALL_TICKERS, TICKER_NAMES
@@ -41,6 +40,16 @@ def ensure_collection():
     else:
         print(f"✅ Collection already exists: {COLLECTION_NAME}")
 
+    qdrant.create_payload_index(
+        collection_name=COLLECTION_NAME,
+        field_name="ticker",
+        field_schema="keyword",
+    )
+    print("✅ Payload index ensured for 'ticker'")
+
+# Call immediately at module load so search_similar_news always works
+ensure_collection()
+
 # ==========================================
 # NEWS FETCHING
 # ==========================================
@@ -50,7 +59,6 @@ def get_company_name(ticker: str) -> str:
 def fetch_news_for_ticker(ticker: str) -> list[dict]:
     """Fetch news from Google News RSS for a given company."""
     company = get_company_name(ticker)
-    # Search both company name and ticker
     queries = [
         f"{company} stock NSE",
         f"{company} BSE share price",
@@ -72,7 +80,6 @@ def fetch_news_for_ticker(ticker: str) -> list[dict]:
                     continue
                 seen_titles.add(title)
 
-                # Parse date
                 published = entry.get("published", "")
                 try:
                     pub_date = datetime(*entry.published_parsed[:6])
@@ -90,7 +97,7 @@ def fetch_news_for_ticker(ticker: str) -> list[dict]:
         except Exception as e:
             print(f"⚠️ News fetch error for {ticker}: {e}")
 
-        time.sleep(0.3)  # be polite to Google
+        time.sleep(0.3)
 
     return articles
 
@@ -117,18 +124,25 @@ def get_stock_reaction(ticker: str, news_date: datetime) -> dict:
         if stock.empty or len(stock) < 2:
             return {"return_1d": None, "return_3d": None, "return_7d": None}
 
-        # Get price on or after news date
         stock.index = pd.to_datetime(stock.index)
         after = stock[stock.index >= pd.Timestamp(news_date.date())]
 
         if after.empty:
             return {"return_1d": None, "return_3d": None, "return_7d": None}
 
-        base_price = float(after["Close"].iloc[0])
+        # squeeze() collapses MultiIndex DataFrame into a Series
+        # but returns a bare scalar (numpy.float64) when only 1 row exists
+        close = after["Close"].squeeze()
+
+        # Guard: if scalar, wrap back into a Series so .iloc works safely
+        if not hasattr(close, 'iloc'):
+            close = pd.Series([float(close)])
+
+        base_price = float(close.iloc[0])
 
         def pct(days):
-            if len(after) > days:
-                future = float(after["Close"].iloc[days])
+            if len(close) > days:
+                future = float(close.iloc[days])
                 return round((future - base_price) / base_price * 100, 2)
             return None
 
@@ -151,11 +165,23 @@ def store_articles(articles: list[dict]):
     if not articles:
         return
 
+    # Deduplicate by title before storing
+    seen = set()
+    unique_articles = []
+    for a in articles:
+        if a["title"] not in seen:
+            seen.add(a["title"])
+            unique_articles.append(a)
+    articles = unique_articles
+
+    if not articles:
+        return
+
     texts = [f"{a['title']}. {a['summary']}" for a in articles]
     vectors = embedder.encode(texts, show_progress_bar=False).tolist()
 
     points = []
-    for i, (article, vector) in enumerate(zip(articles, vectors)):
+    for article, vector in zip(articles, vectors):
         reaction = article.get("reaction", {})
         points.append(
             PointStruct(
@@ -193,20 +219,17 @@ def run_ingestion(tickers: list[str] = None):
         company = get_company_name(ticker)
         print(f"→ Processing {company} ({ticker})")
 
-        # 1. Fetch news
         articles = fetch_news_for_ticker(ticker)
         print(f"  📰 Found {len(articles)} articles")
 
         if not articles:
             continue
 
-        # 2. Get stock reactions for each article
         for article in articles:
             article["reaction"] = get_stock_reaction(ticker, article["published"])
 
-        # 3. Store in Qdrant
         store_articles(articles)
-        time.sleep(1)  # rate limit yfinance
+        time.sleep(1)
 
     print("\n✅ Ingestion complete!")
 
@@ -217,15 +240,15 @@ def search_similar_news(query: str, ticker: str, top_k: int = 5) -> list[dict]:
     """Search Qdrant for historically similar news for a ticker."""
     vector = embedder.encode([query])[0].tolist()
 
-    results = qdrant.search(
+    results = qdrant.query_points(
         collection_name=COLLECTION_NAME,
-        query_vector=vector,
+        query=vector,
         query_filter=Filter(
             must=[FieldCondition(key="ticker", match=MatchValue(value=ticker))]
         ),
         limit=top_k,
         with_payload=True,
-    )
+    ).points
 
     hits = []
     for r in results:

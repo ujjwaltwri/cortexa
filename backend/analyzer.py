@@ -8,7 +8,7 @@ from datetime import datetime
 from config import GEMINI_API_KEY, TICKER_NAMES
 
 genai.configure(api_key=GEMINI_API_KEY)
-model = genai.GenerativeModel("gemini-1.5-flash")
+model = genai.GenerativeModel("gemini-2.5-flash")
 
 # ==========================================
 # FETCH LIVE NEWS (for current situation)
@@ -63,6 +63,12 @@ def fetch_fundamentals(ticker: str) -> dict:
         week_52_high = info.get("fiftyTwoWeekHigh")
         week_52_low = info.get("fiftyTwoWeekLow")
 
+        # D/E ratio — yfinance sometimes returns it as a percentage (e.g. 3565 instead of 35.65)
+        # For Indian large-caps, anything above 10 is almost certainly misreported
+        de_ratio = info.get("debtToEquity")
+        if de_ratio is not None and de_ratio > 10:
+            de_ratio = round(de_ratio / 100, 2)
+
         return {
             "current_price": current_price,
             "day_change_pct": day_change,
@@ -71,7 +77,7 @@ def fetch_fundamentals(ticker: str) -> dict:
             "pb_ratio": info.get("priceToBook"),
             "revenue": info.get("totalRevenue"),
             "profit_margin": info.get("profitMargins"),
-            "debt_to_equity": info.get("debtToEquity"),
+            "debt_to_equity": de_ratio,
             "roe": info.get("returnOnEquity"),
             "dividend_yield": info.get("dividendYield"),
             "week_52_high": week_52_high,
@@ -84,7 +90,6 @@ def fetch_fundamentals(ticker: str) -> dict:
     except Exception as e:
         print(f"⚠️ Fundamentals error for {ticker}: {e}")
         return {}
-
 
 # ==========================================
 # FORMAT HELPERS

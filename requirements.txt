@@ -1,22 +1,9 @@
-# Core
 fastapi
-uvicorn[standard]
-python-dotenv
-pydantic
-
-# Data
+uvicorn
+feedparser
 yfinance
 pandas
-numpy
-feedparser
-beautifulsoup4
-
-# ML & Embeddings
 sentence-transformers
-scikit-learn
-
-# Vector DB
 qdrant-client
-
-# AI
 google-generativeai
+python-dotenv
