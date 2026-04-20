@@ -42,8 +42,9 @@ cortexa/
 │   ├── main.py          # FastAPI server — /analyze endpoint
 │   ├── ingestion.py     # News fetching, stock reaction calculation, Qdrant population
 │   ├── analyzer.py      # Fundamentals fetching + Gemini reasoning
-│   └── config.py        # Ticker map, company names, constants
-│   ├── requirements.txt
+│   ├── config.py        # Ticker map, company names, constants
+│   ├── Dockerfile       # Container config for Cloud Run
+│   └── requirements.txt
 ├── frontend/
 │   └── index.html       # Chat-style single-page frontend
 ├── .env
@@ -151,7 +152,7 @@ Takes a natural language query and returns a full investment analysis.
 
 ### POST /ingest
 
-Triggers a full ingestion run — fetches fresh news for all companies and updates Qdrant. This endpoint is called automatically every night at 2:00 AM IST by Cloud Scheduler.
+Triggers a full ingestion run — fetches fresh news for all companies and updates Qdrant. Called automatically every night at 2:00 AM IST by Cloud Scheduler.
 
 ### GET /tickers
 
@@ -190,6 +191,20 @@ Region:    us-central1
 
 ### Backend — Google Cloud Run
 
+The backend is containerised using Docker and deployed to Cloud Run.
+
+**`backend/Dockerfile`:**
+```dockerfile
+FROM python:3.11-slim
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+COPY . .
+EXPOSE 8080
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8080"]
+```
+
+Build and deploy:
 ```bash
 cd backend
 gcloud run deploy cortexa \
