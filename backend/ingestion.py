@@ -23,7 +23,7 @@ from config import (
 # INIT
 # ==========================================
 print("🔧 Initializing ingestion pipeline...")
-embedder = SentenceTransformer("BAAI/bge-small-en-v1.5")
+embedder = SentenceTransformer("all-MiniLM-L6-v2")
 qdrant = QdrantClient(url=QDRANT_URL, api_key=QDRANT_API_KEY)
 
 # ==========================================
@@ -178,7 +178,7 @@ def store_articles(articles: list[dict]):
         return
 
     texts = [f"{a['title']}. {a['summary']}" for a in articles]
-    vectors = [v.tolist() for v in embedder.embed(texts)]
+    vectors = embedder.encode(texts, show_progress_bar=False).tolist()
 
     points = []
     for article, vector in zip(articles, vectors):
@@ -238,7 +238,7 @@ def run_ingestion(tickers: list[str] = None):
 # ==========================================
 def search_similar_news(query: str, ticker: str, top_k: int = 5) -> list[dict]:
     """Search Qdrant for historically similar news for a ticker."""
-    vector = list(embedder.embed([query]))[0].tolist()
+    vector = embedder.encode([query])[0].tolist()
 
     results = qdrant.query_points(
         collection_name=COLLECTION_NAME,

@@ -3,9 +3,7 @@ uvicorn
 feedparser
 yfinance
 pandas
+sentence-transformers
 qdrant-client
 google-generativeai
 python-dotenv
-sentence-transformers
---extra-index-url https://download.pytorch.org/whl/cpu
-torch==2.11.0+cpu
